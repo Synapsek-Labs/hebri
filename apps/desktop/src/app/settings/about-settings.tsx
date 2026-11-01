@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useEffect, useState } from 'react'
 
 import { BrandMark } from '@/components/brand-mark'
+import { GettingStartedDialog } from '@/components/onboarding/getting-started'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { type Translations, useI18n } from '@/i18n'
@@ -74,6 +75,7 @@ function AppUpdatesSettings({ includeUninstall }: { includeUninstall: boolean })
   const apply = useStore($updateApply)
   const checking = useStore($updateChecking)
   const [justChecked, setJustChecked] = useState(false)
+  const [guideOpen, setGuideOpen] = useState(false)
 
   // The version atom is loaded once at app boot, which makes About show a
   // stale number after a self-update (the running binary is current, the
@@ -129,6 +131,11 @@ function AppUpdatesSettings({ includeUninstall }: { includeUninstall: boolean })
             {version?.appVersion ? a.version(version.appVersion) : a.versionUnavailable}
           </p>
         </div>
+        <Button onClick={() => setGuideOpen(true)} variant="outline">
+          <Codicon name="book" size="0.9rem" />
+          {t.gettingStarted.open}
+        </Button>
+        <GettingStartedDialog onClose={() => setGuideOpen(false)} open={guideOpen} />
         {(version?.bundleOutOfSync || version?.bundleSwapPending) && (
           <div className="mx-auto w-full max-w-2xl rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-left text-sm">
             <div className="flex items-start gap-2">

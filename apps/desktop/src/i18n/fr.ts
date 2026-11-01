@@ -1,9 +1,11 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introFr } from './intro-fr'
 
 export const fr = defineLocale({
+  gettingStarted: gettingStartedCopy['fr'],
   intro: introFr,
   browserAccess: {
     useInChat: 'Autoriser cet agent à utiliser cet onglet',

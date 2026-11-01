@@ -14,6 +14,8 @@ Hebri combines a native desktop agent, a separate human Team workspace, managed 
 
 ## Install
 
+New to Hebri? Start with the illustrated [setup guide](docs/user-guide/README.md) ([Italiano](docs/user-guide/README.it.md)): connect a model, try your first task, use the browser and pair another computer.
+
 Download the package for your platform from [GitHub Releases](https://github.com/satoshilove/hebri/releases):
 
 - Windows: `.exe` installer for the normal guided setup, or `.msi` for managed and enterprise deployment.

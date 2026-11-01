@@ -2,12 +2,14 @@ import { mergeTranslations } from '@hermes/shared/i18n'
 
 import { additionalIt } from './additional-it'
 import { defineLocale, type TranslationOverrides } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introIt } from './intro-it'
 import { italianSupplements } from './it-supplements'
 
 // Italian desktop overlay. Shared wording follows web/src/i18n/it.ts.
 // Additional desktop copy is organized by feature in the Italian supplements.
 const itBase = {
+  gettingStarted: gettingStartedCopy.it,
   additional: additionalIt,
   intro: introIt,
   browserAccess: {
