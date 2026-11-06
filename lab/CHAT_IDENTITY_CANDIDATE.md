@@ -126,3 +126,39 @@ Python/Bash/PowerShell syntax checks. Packaging evidence is kept outside the
 source tree under the Lab release-prep `hebri-command-20261106` directory.
 Device-to-device Team Chat is deferred by the user; no publication or production
 installation is part of this local candidate.
+
+## Rust and KEEL qualification (2026-11-07)
+
+This supersedes the earlier missing-toolchain note. Rust 1.99.1 and approved MSVC
+Build Tools now build the native Tauri bootstrap. All 71 Rust tests pass, including
+actual PowerShell child environments and A-to-B-to-A home resolution. The download
+source is satoshilove/hebri, the checkout is hebri-agent, and its script cache is
+namespaced to prevent reuse of an upstream Hermes script. HEBRI_HOME controls the
+owned home; child processes receive matching public/internal home variables.
+Existing updater helper filenames and legacy lock recognition remain compatible.
+
+The unsigned 0.21.1 bootstrap candidate is built and its read-only --version check
+passes. Its downloadable payload is explicitly pinned to published Hebri 0.17.24
+commit f3521b52adcba32d9526ade0d3cdb8b259175b9a, not an unpublished local branch.
+This executable therefore does not deliver the new KEEL or desktop changes yet.
+No actual installation/upgrade was performed. The executable, locked Cargo inputs,
+SHA-256 receipt and build log are outside the source tree in
+../keel-evidence-20261107. Re-pin after the reviewed application source is published.
+
+KEEL remains an external plugin repository, with profile-scoped memory and a
+longwork CLI/handoff skill. Real host discovery, memory orchestration, session
+SQLite databases, credential scope and CLI tests cover profile isolation.
+Installation at immutable local commits passes the host scanner. It remains a
+private repository; public catalog admission requires a reachable published pin.
+Existing Bits are not switched to a new memory provider automatically.
+
+Unknown-owner multiplex log records no longer fall into the launch profile's
+normal logs. A fixed diagnostic counts withheld records without copying unscoped
+message content or credentials. MCP is pinned to 2.2.0 with a frozen dependency
+sync and real stdio client/server round trip. The Skills Hub picker accepts
+canonical @owner identifiers while rejecting traversal segments.
+
+The paired portal change lives in ../synapsek-skills-hub-20261107. Deploy its
+/docs/api/skills-index.json endpoint before releasing Hebri's new index URL.
+Portal and candidate changes are local review branches until explicitly published.
+Device-to-device Team Chat remains deferred by the user.

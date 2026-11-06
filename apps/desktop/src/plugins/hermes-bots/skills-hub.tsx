@@ -74,7 +74,8 @@ export function HubSkillsSection({ bot, onInstalled }: HubSkillsSectionProps) {
 
       // Skill identifiers are slugs / owner-name paths — keep anything
       // else out of skills.manage.
-      if (!/^[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(target)) {
+      if (target.length > 512 || !/^@?[A-Za-z0-9][A-Za-z0-9._/-]*$/.test(target) ||
+        target.split('/').some(part => !part || part === '.' || part === '..')) {
         return
       }
 

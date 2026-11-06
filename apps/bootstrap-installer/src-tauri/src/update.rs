@@ -18,7 +18,7 @@
 //! sees discrete steps (with the live log underneath) instead of one bar.
 //!
 //! Cross-platform note: `hebri update` already handles macOS/Linux (git/pip).
-//! The only OS-specific bits here are the venv shim path (resolve_hermes) and
+//! The only OS-specific bits here are the venv shim path (resolve_hebri) and
 //! the no-window creation flag — both already cfg-gated. Keep new logic
 //! OS-agnostic so the mac/linux port stays "fill in the paths".
 
@@ -284,7 +284,7 @@ impl Drop for UpdateMarkerGuard {
 
 async fn run_update(app: AppHandle) -> Result<()> {
     let hermes_home = crate::paths::hermes_home();
-    let install_root = hermes_home.join("hermes-agent");
+    let install_root = hermes_home.join("hebri-agent");
 
     // Mutual exclusion (#50238): publish an "update in progress" marker for the
     // entire duration of this update. A desktop instance the user relaunches
@@ -335,9 +335,9 @@ async fn run_update(app: AppHandle) -> Result<()> {
         None
     };
 
-    let hermes = resolve_hermes(&install_root).ok_or_else(|| {
+    let hermes = resolve_hebri(&install_root).ok_or_else(|| {
         let msg = format!(
-            "Could not find the legacy hermes CLI under {}. Is Hebri installed? \
+            "Could not find the Hebri CLI under {}. Is Hebri installed? \
              Re-run the installer to repair the install.",
             install_root.display()
         );
@@ -1046,7 +1046,7 @@ fn venv_hebri(install_root: &Path) -> PathBuf {
 }
 
 /// Resolve Hebri in the updated install, then on PATH. Never select a foreign Hermes installation.
-fn resolve_hermes(install_root: &Path) -> Option<PathBuf> {
+fn resolve_hebri(install_root: &Path) -> Option<PathBuf> {
     let shim = venv_hebri(install_root);
     if shim.exists() {
         return Some(shim);
@@ -1394,11 +1394,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn venv_hermes_is_under_install_root() {
+    fn venv_shims_stay_under_owned_install_root() {
         let root = Path::new("/x/hermes-agent");
-        let shim = venv_hermes(root);
+        let shim = venv_hebri(root);
         assert!(shim.starts_with(root));
+        assert!(venv_hermes(root).starts_with(root));
         assert!(shim.to_string_lossy().contains("venv"));
+        assert_eq!(shim.file_name().unwrap(), if cfg!(windows) { "hebri.exe" } else { "hebri" });
+        let installed = unique_tmp_dir("owned-hebri-shim");
+        let public_shim = venv_hebri(&installed);
+        std::fs::create_dir_all(public_shim.parent().unwrap()).unwrap();
+        std::fs::write(&public_shim, b"fixture").unwrap();
+        std::fs::write(venv_hermes(&installed), b"legacy fixture").unwrap();
+        assert_eq!(resolve_hebri(&installed), Some(public_shim));
+        assert_eq!(installed.canonicalize().unwrap().parent(), Some(std::env::temp_dir().canonicalize().unwrap().as_path()));
+        std::fs::remove_dir_all(installed).unwrap();
     }
 
     #[test]
@@ -1409,6 +1419,9 @@ mod tests {
     #[test]
     fn update_child_env_forces_unbuffered_python() {
         let envs = update_child_env(Path::new("/x/hermes-agent"));
+        let internal_home = envs.iter().find(|(k, _)| k == "HERMES_HOME").unwrap();
+        let public_home = envs.iter().find(|(k, _)| k == "HEBRI_HOME").unwrap();
+        assert_eq!(public_home.1, internal_home.1, "public Hebri and internal core must share the owned home");
         assert!(
             envs.iter()
                 .any(|(k, v)| k == "PYTHONUNBUFFERED" && v.to_str() == Some("1")),

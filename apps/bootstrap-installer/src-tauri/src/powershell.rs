@@ -7,7 +7,7 @@
 //! On Unix we shell out to `bash <script>` since install.sh expects bash.
 
 use anyhow::{Context, Result};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{ExitStatus, Stdio};
 use std::time::Duration;
 use tokio::io::{AsyncBufReadExt, BufReader};
@@ -299,9 +299,10 @@ pub async fn run_script(
         cmd.current_dir(cwd);
     }
 
-    if let Some(home) = hermes_home_override {
-        cmd.env("HERMES_HOME", home);
-    }
+    // Always bind the public and compatibility variables to our owned home.
+    // A foreign HERMES_HOME inherited from another installation is never authoritative.
+    let owned_home = hermes_home_override.map(PathBuf::from).unwrap_or_else(crate::paths::hermes_home);
+    cmd.env("HEBRI_HOME", &owned_home).env("HERMES_HOME", &owned_home);
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::piped())
@@ -518,6 +519,26 @@ use std::os::windows::process::CommandExt;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn install_child_receives_both_owned_home_variables() {
+        let dir = std::env::temp_dir().join(format!("hebri-home-test-{}", uuid::Uuid::new_v4()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = dir.join("home.ps1");
+        std::fs::write(&script, "Write-Output $env:HEBRI_HOME\nWrite-Output $env:HERMES_HOME\n").unwrap();
+        for profile in ["a", "b", "a"] {
+            let home = dir.join(profile);
+            std::fs::create_dir_all(&home).unwrap();
+            let sink = StreamSink { on_stdout_line: Box::new(|_| {}), on_stderr_line: Box::new(|_| {}) };
+            let result = run_script(&script, &[], sink, home.to_str(), &mut None).await.unwrap();
+            assert_eq!(result.exit_code, Some(0), "{}", result.stderr);
+            let rows: Vec<_> = result.stdout.lines().filter(|line| !line.is_empty()).collect();
+            assert_eq!(rows, vec![home.to_str().unwrap(), home.to_str().unwrap()]);
+        }
+        assert_eq!(dir.canonicalize().unwrap().parent(), Some(std::env::temp_dir().canonicalize().unwrap().as_path()));
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn parse_stage_result_picks_last_json_line() {
