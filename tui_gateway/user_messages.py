@@ -93,7 +93,7 @@ def busy_message(command: str) -> str:
 
 def agent_init_failed_message(exc: Any) -> str:
     return (f"Hermes could not start the assistant for this session. Details: {exc}. "
-            "Check the model and provider with /model, or run `hermes setup` in a terminal to reconfigure.")
+            "Check the model and provider with /model, or run `hebri setup` in a terminal to reconfigure.")
 
 
 AGENT_STILL_STARTING = (

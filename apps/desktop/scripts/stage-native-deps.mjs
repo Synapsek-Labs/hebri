@@ -681,7 +681,7 @@ export function missingGetWindowsWarning({ platform, arch, halfInstalledDir }) {
       `[stage-native-deps] ${halfInstalledDir} exists but is not a loadable package — an ` +
         'interrupted npm install left it half-extracted (look for TAR_ENTRY_ERROR in the install log). ' +
         'To restore read_window_below: close every Hermes window and gateway so the extract is not ' +
-        'interrupted again, then run `hermes desktop --force-build` — it removes the stale dir before npm.'
+        'interrupted again, then run `hebri desktop --force-build` — it removes the stale dir before npm.'
     )
   }
   return lines.join('\n')

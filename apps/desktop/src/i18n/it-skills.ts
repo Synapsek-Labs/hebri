@@ -50,7 +50,7 @@ export const itSkills = {
     changesApplyNewSessions: 'Le modifiche si applicano alle nuove sessioni.',
     skillUpdated: 'Competenza aggiornata',
     skillArchivedTitle: 'Competenza archiviata',
-    skillArchivedMessage: 'Ripristinabile tramite hermes curator restore.',
+    skillArchivedMessage: 'Ripristinabile tramite hebri curator restore.',
     plugins: {
       agentTitle: 'Plugin dell’agente',
       agentBlurb:

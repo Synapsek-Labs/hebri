@@ -2791,7 +2791,7 @@ export const de = defineLocale({
     edit: 'Bearbeiten',
     archive: 'Archivieren',
     skillArchivedTitle: 'Skill archiviert',
-    skillArchivedMessage: 'Wiederherstellbar über „hermes curator restore“.',
+    skillArchivedMessage: 'Wiederherstellbar über „hebri curator restore“.',
     tabPlugins: 'Plugins',
     plugins: {
       agentTitle: 'Agent-Plugins',
@@ -5949,7 +5949,7 @@ export const de = defineLocale({
       success: platform => `Übergeben an ${platform}. Jederzeit hier fortsetzen.`,
       systemNote: platform => `↻ Übergeben an ${platform} — jederzeit hier fortsetzen.`,
       failed: error => `Übergabe fehlgeschlagen: ${error}`,
-      timedOut: 'Zeitüberschreitung beim Warten auf das Gateway. Läuft `hermes gateway`?',
+      timedOut: 'Zeitüberschreitung beim Warten auf das Gateway. Läuft `hebri gateway`?',
       startMessaging: 'Messaging starten'
     }
   },

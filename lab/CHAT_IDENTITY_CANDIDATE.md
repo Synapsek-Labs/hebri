@@ -101,3 +101,28 @@ The patch is based on the Lab branch, so applying it to another branch requires
 review and validation against that target; the Lab build is not a production
 installer. A live parent that omits the opt-in must never be described as having
 runtime-enforced stopping.
+
+
+## Production-base command candidate (2026-11-06)
+
+The isolated `codex/hebri-release-candidate-20261106` branch starts at production
+main `f3521b52adcba32d9526ade0d3cdb8b259175b9a` and cherry-picks the two reviewed
+chat/contract commits before applying the Hebri command audit. It does not include
+the unrelated dirty Lab worktree edits.
+
+Public help, bundled skill instructions, shell completions, profile aliases,
+worker launchers, SSH auto-detection and MCP command imports use `hebri`.
+Served child environments bridge HEBRI_HOME to the selected internal HERMES_HOME;
+real A–B–A child launches verify that the public launcher preserves Bit identity.
+Legacy executable recognition remains for durable deliveries and updater locks.
+Internal module names, database/protocol keys and existing Bit handles remain
+compatible. The Rust bootstrap source is updated, but no Rust toolchain is present
+on this host, so its binary is not rebuilt or qualified by this Windows candidate.
+
+Validation includes native Windows remote-discovery scripts against temporary
+Hebri/Hermes fixtures, actual CLI help and Bash completion, the chat restoration
+suite, Python identity/contract regressions, desktop type checks, lint, and
+Python/Bash/PowerShell syntax checks. Packaging evidence is kept outside the
+source tree under the Lab release-prep `hebri-command-20261106` directory.
+Device-to-device Team Chat is deferred by the user; no publication or production
+installation is part of this local candidate.
