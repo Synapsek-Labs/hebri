@@ -60,6 +60,37 @@ The live run preceded the two reporting fixes; the final canonical focused run
 passed 13 tests with no failures after those fixes. See
 `.lab-data/release-prep/chat-identity-20261106/verification-diagnostics.log`.
 
+## Follow-up contract verification
+
+The model-facing task schema now requires an explicit `stop_on_tool_error`
+decision and advertises `output_schema` as JSON text. Existing callers may still
+pass schema objects or omit the stop policy (ordinary recovery remains the
+legacy default). Local argument handling did not strip the earlier fields;
+the representation change improves model compliance without guaranteeing it.
+
+Lab lacked `jsonschema`; its previous fallback could certify parsed JSON without
+checking the contract. Requested contracts now fail before child creation when
+the validator is unavailable. Validation also returns an explicit failure if
+the dependency becomes unavailable later. Lab now has `jsonschema==4.26.0` and
+its supporting packages from the lockfile; existing `attrs==26.1.0` and
+`typing-extensions==4.16.0` were retained for compatibility. `pip check` passed.
+
+The fresh native `strict-child-contract-v1` check preserved the exact schema and
+true stop policy. One child model call, one terminal invocation and exit 17
+produced a failed result, an error trace, the actual error text, and
+`schema_valid=false` for the missing `outcome`, without a correction retry.
+It was delivered once to the correct chat. This supersedes the earlier live
+schema-verification gap, but does not prove universal parent compliance.
+
+That completion exposed a formatter omission: stored schema evidence was not
+included in the parent notification. Batch, single-child and early-failure
+notifications now carry the recorded verdict and errors. The final formatter
+was checked by replaying the retained native result without changing history or
+making another model call. Its regression suite passed 6 cases; the final
+combined run passed 21 with no failures. The separate two-home checks passed 2.
+Evidence is in `.lab-data/release-prep/delegation-contract-20261106/` and
+`.lab-data/live-test/strict-child-contract-v1/operator/qualification.json`.
+
 ## Packaging boundary
 
 This candidate contains the reviewed chat/navigation/caption and strict-child
