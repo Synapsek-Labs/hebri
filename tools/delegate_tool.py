@@ -387,6 +387,8 @@ def _build_children(
     for i, t in enumerate(task_list):
         _task_schema = task_schemas[i] if i < len(task_schemas) else None
         _child_context = t.get("context")
+        if t.get("stop_on_tool_error", False):
+            _child_context = (_child_context or "") + "\nExecution policy: stop after the first tool execution failure; do not retry or start another tool."
         if _task_schema is not None:
             _child_context = append_output_contract(_child_context, _task_schema)
         try:
@@ -398,6 +400,8 @@ def _build_children(
             )
         except ValueError as exc:
             return [], str(exc)
+        child._delegate_stop_on_tool_error = t.get("stop_on_tool_error", False)
+        child._delegate_tool_failure = None
         if _task_schema is not None:
             with _quiet("Could not attach output schema to child %d", i):
                 child._delegate_output_schema = _task_schema
@@ -673,6 +677,13 @@ DELEGATE_TASK_SCHEMA = {
                             "child up front; parent validates with one bounded correction retry; result gains "
                             "schema_valid, plus schema_errors on failure — the child's raw text is still returned "
                             "as summary, never discarded). Keep it forgiving — require only fields you will read.",
+                        ),
+                        "stop_on_tool_error": _p(
+                            "boolean",
+                            "Set true when the user requires stopping after a failure without retries. "
+                            "Executes this child's tools sequentially; the first tool error ends the child, "
+                            "returns the actual error, and skips unstarted calls. Default false permits recovery. "
+                            "This controls tool execution, not provider transport retries.",
                         ),
                         "images": _p(
                             "array",
