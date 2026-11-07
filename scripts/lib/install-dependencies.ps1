@@ -31,9 +31,9 @@ function Invoke-HebriLockedSync {
 # Python dependency provisioning, loaded after the source checkout is available.
 function Invoke-HebriDependencyInstall {
     Write-Info "Installing dependencies..."
-    
+
     Push-Location $InstallDir
-    
+
     if (-not $NoVenv) {
         # Tell uv to install into our venv (no activation needed)
         $env:VIRTUAL_ENV = "$InstallDir\venv"
@@ -166,7 +166,7 @@ print(','.join(scripts))
             throw "dashboard backend source failed syntax check: hermes_cli/web_server.py"
         }
     }
-    
+
     Complete-VenvTransaction
     } catch {
         Restore-VenvBackup
@@ -174,7 +174,6 @@ print(','.join(scripts))
     } finally {
         Pop-Location
     }
-    
+
     Write-Success "All dependencies installed"
 }
-
