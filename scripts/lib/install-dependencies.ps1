@@ -1,3 +1,33 @@
+﻿# Run only this checkout's resolver policy, preserving the caller's environment.
+function Invoke-HebriLockedSync {
+    param([switch]$RepairEntryPoints, [ValidateSet('messaging', 'wake', 'voice')][string[]]$Extra = @(), [switch]$Inexact)
+    $names = @('UV_NO_CONFIG', 'UV_CONFIG_FILE', 'APPDATA', 'PROGRAMDATA', 'UV_PROJECT_ENVIRONMENT')
+    $saved = @{}
+    foreach ($name in $names) { $saved[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
+    $configDir = Join-Path ([IO.Path]::GetTempPath()) ('hebri-uv-config-' + [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType Directory -Path $configDir -Force | Out-Null
+    try {
+        Remove-Item Env:\UV_NO_CONFIG, Env:\UV_CONFIG_FILE -ErrorAction SilentlyContinue
+        $env:APPDATA = $configDir
+        $env:PROGRAMDATA = $configDir
+        $env:UV_PROJECT_ENVIRONMENT = Join-Path $InstallDir 'venv'
+        $arguments = 'sync --extra all --no-dev --locked'
+        foreach ($name in $Extra) { $arguments += " --extra $name" }
+        if ($Inexact) { $arguments += ' --inexact' }
+        if ($RepairEntryPoints) { $arguments += ' --reinstall-package hermes-agent' }
+        $logPath = Join-Path $HermesHome 'logs\install-python.log'
+        New-Item -ItemType Directory -Path (Split-Path $logPath) -Force | Out-Null
+        $code = _Invoke-NativeWithTimeout $UvCmd $arguments $InstallDir $logPath 600
+        if ($code -ne 0) {
+            throw "Verified Python installation failed (exit $code). Check $logPath and retry; the dependency lock was preserved."
+        }
+    } finally {
+        foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $saved[$name], 'Process') }
+        # The isolated configuration directory is deliberately empty.
+        Remove-Item -LiteralPath $configDir -ErrorAction SilentlyContinue
+    }
+}
+
 # Python dependency provisioning, loaded after the source checkout is available.
 function Invoke-HebriDependencyInstall {
     Write-Info "Installing dependencies..."
@@ -13,8 +43,8 @@ function Invoke-HebriDependencyInstall {
     # but the bootstrap runs install stages (venv, python-deps) as separate
     # processes, so the env var set in Install-Venv does NOT survive into a
     # separate python-deps invocation. Re-deriving it here covers that path.
-    # Without it, an inherited $env:UV_PYTHON = "3.14" makes the uv sync/pip
-    # tiers below recreate the venv at 3.14 and fail the maturin source build
+    # Without it, an inherited $env:UV_PYTHON = "3.14" makes the locked sync
+    # below recreate the venv at 3.14 and fail the maturin source build
     # (no cp314 wheels yet).
     if (-not $NoVenv) {
         $venvPythonExe = Join-Path $InstallDir "venv\Scripts\python.exe"
@@ -23,128 +53,13 @@ function Invoke-HebriDependencyInstall {
         }
     }
 
-    # Hash-verified install (Tier 0) -- when uv.lock is present, prefer
-    # `uv sync --locked`. The lockfile records SHA256 hashes for every
-    # transitive dependency, so a compromised transitive (different hash
-    # than what we shipped) is REJECTED by the resolver. This is the
-    # *only* path that protects against the "direct dep is fine, but the
-    # dep's dep got worm-poisoned overnight" failure mode. The
-    # `uv pip install` tiers below re-resolve transitives fresh from PyPI
-    # without any hash verification -- they exist to keep installs working
-    # when the lockfile is stale, missing, or out-of-sync with the
-    # current extras spec, NOT because they're equivalent in posture.
-    #
-    # Everything through the baseline-import gate runs inside the venv
-    # transaction opened by Install-Venv (#83149): on any failure the parked
-    # previous venv is restored before the error propagates, and the parked
-    # tree is deleted only after the imports prove the replacement usable.
+    # A failed verified install must never downgrade to a fresh PyPI resolve.
     try {
-    if (Test-Path "uv.lock") {
-        Write-Info "Trying tier: hash-verified (uv.lock) ..."
-        # Critical flag choice: `--extra all`, NOT `--all-extras`.
-        #   --all-extras = every [project.optional-dependencies] key,
-        #                  bypassing the curated [all] extra. On Windows
-        #                  that means [matrix] -> python-olm (no wheel,
-        #                  needs `make` to build from sdist) and the
-        #                  install fails.
-        #   --extra all  = just the [all] extra's contents (curated).
-        #
-        # UV_PROJECT_ENVIRONMENT pins the sync target to our venv\.
-        # Without it, modern uv (>=0.5) ignores VIRTUAL_ENV for `sync`
-        # and creates a sibling .venv\ inside the repo -- leaving venv\
-        # empty and producing the broken state where `hermes.exe` exists
-        # in the wrong directory and imports fail with ModuleNotFoundError.
-        # (Mirrors the same flag in scripts/install.sh::install_deps.)
-        $env:UV_PROJECT_ENVIRONMENT = "$InstallDir\venv"
-        Invoke-NativeWithRelaxedErrorAction { & $UvCmd sync --extra all --locked }
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "Main package installed (hash-verified via uv.lock)"
-            $script:InstalledTier = "hash-verified (uv.lock)"
-            # Skip the rest of the tiered cascade -- we already have a
-            # complete, hash-verified install.
-            $skipPipFallback = $true
-        } else {
-            Write-Warn "uv.lock sync failed (lockfile may be stale), falling back to PyPI resolve..."
-            $skipPipFallback = $false
+        if (-not (Test-Path 'uv.lock' -PathType Leaf)) {
+            throw 'The release is missing uv.lock. Re-download Hebri before retrying.'
         }
-    } else {
-        Write-Info "uv.lock not found -- falling back to PyPI resolve (no hash verification)"
-        $skipPipFallback = $false
-    }
-
-    # Install main package.  Tiered fallback so a single flaky transitive
-    # doesn't silently drop everything.  Each tier's stdout/stderr is
-    # preserved -- no Out-Null swallowing -- so the user can see what failed.
-    #
-    # Tier 1: [all] -- the curated extra in pyproject.toml.
-    # Tier 2: [all] minus the currently-broken extras list ($brokenExtras).
-    #         Edit $brokenExtras below when something on PyPI breaks; this
-    #         lets users keep the rest of [all] when one transitive is
-    #         unavailable. The list of [all]'s contents is parsed from
-    #         pyproject.toml at runtime -- there is NO hand-mirrored copy
-    #         to drift out of sync.
-    # Tier 3: bare `.` -- last-resort so at least the core CLI launches.
-
-    # Currently-broken extras. Edit this list when an upstream package
-    # gets quarantined / yanked / breaks resolution. Empty means everything
-    # in [all] should be installable; populate with the names of extras
-    # whose deps are temporarily unavailable.
-    $brokenExtras = @()
-
-    # Parse [project.optional-dependencies].all from pyproject.toml.
-    # tomllib is stdlib on Python 3.11+ which the bootstrap guarantees.
-    $pythonExeForParse = if (-not $NoVenv) { "$InstallDir\venv\Scripts\python.exe" } else { (& $UvCmd python find $PythonVersion) }
-    $allExtras = @()
-    if (Test-Path $pythonExeForParse) {
-        $parsed = & $pythonExeForParse -c @"
-import re, sys, tomllib
-try:
-    with open('pyproject.toml', 'rb') as fh:
-        data = tomllib.load(fh)
-    specs = data['project']['optional-dependencies']['all']
-    out = []
-    for s in specs:
-        m = re.search(r'hermes-agent\[([\w-]+)\]', s)
-        if m: out.append(m.group(1))
-    print(','.join(out))
-except Exception:
-    sys.exit(1)
-"@ 2>$null
-        if ($LASTEXITCODE -eq 0 -and $parsed) {
-            $allExtras = $parsed.Trim().Split(',')
-        }
-    }
-    if (-not $allExtras -or $allExtras.Count -eq 0) {
-        Write-Warn "Could not parse [all] from pyproject.toml; Tier 2 will be a no-op."
-        $safeAll = "all"
-    } else {
-        $safeAll = ($allExtras | Where-Object { $brokenExtras -notcontains $_ }) -join ","
-    }
-    $brokenLabel = if ($brokenExtras) { ($brokenExtras -join ", ") } else { "none" }
-
-    $installTiers = @(
-        @{ Name = "all"; Spec = ".[all]" },
-        @{ Name = "all minus known-broken ($brokenLabel)"; Spec = ".[$safeAll]" },
-        @{ Name = "core only (no extras)"; Spec = "." }
-    )
-    $installed = $skipPipFallback
-    if (-not $skipPipFallback) {
-        foreach ($tier in $installTiers) {
-        Write-Info "Trying tier: $($tier.Name) ..."
-        Invoke-NativeWithRelaxedErrorAction { & $UvCmd pip install -e $tier.Spec }
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "Main package installed ($($tier.Name))"
-            $script:InstalledTier = $tier.Name
-            $installed = $true
-            break
-        }
-        Write-Warn "Tier '$($tier.Name)' failed (exit $LASTEXITCODE). Trying next tier..."
-        }
-    }
-    if (-not $installed) {
-        throw "Failed to install hermes-agent package even with no extras. Inspect the uv pip install output above."
-    }
-
+        Invoke-HebriLockedSync
+        $script:InstalledTier = 'hash-verified (uv.lock)'
     # Baseline-import gate. Even if a tier reported success above, the
     # actual deps may have landed somewhere other than $InstallDir\venv\
     # (e.g. uv 0.5+ syncing into a sibling .venv\ when UV_PROJECT_ENVIRONMENT
@@ -165,7 +80,7 @@ except Exception:
         # regardless of what was written to stderr).
         $prevEAP = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
-        & $venvPython -c "import dotenv, openai, rich, prompt_toolkit" 2>&1 | Out-Null
+        & $venvPython -c "import dotenv, openai, rich, prompt_toolkit, fastapi, uvicorn" 2>&1 | Out-Null
         $importExitCode = $LASTEXITCODE
         $ErrorActionPreference = $prevEAP
         if ($importExitCode -ne 0) {
@@ -178,19 +93,6 @@ except Exception:
             throw "Baseline imports failed in $InstallDir\venv (dotenv/openai/rich/prompt_toolkit). The install completed but dependencies are not in the venv. $hint"
         }
         Write-Success "Baseline imports verified in venv"
-    }
-
-    # Commit the venv transaction: the dependency install completed and the
-    # baseline imports passed, so the previous venv is no longer needed as a
-    # rollback source (#83149).
-    Complete-VenvTransaction
-    } catch {
-        # Dependency install or import validation failed: restore the previous
-        # working venv (parked by Install-Venv) before surfacing the error, so
-        # a failed update leaves Hermes and its blocker probe usable.
-        Restore-VenvBackup
-        Pop-Location
-        throw
     }
 
     if (-not $NoVenv) {
@@ -218,7 +120,7 @@ print(','.join(scripts))
                     Write-Warn "Console entry point(s) missing: $($missing -join ', ')"
                     Write-Info "Reinstalling entry points..."
                     $env:UV_PROJECT_ENVIRONMENT = "$InstallDir\venv"
-                    Invoke-NativeWithRelaxedErrorAction { & $UvCmd pip install --reinstall -e . }
+                    Invoke-HebriLockedSync -RepairEntryPoints
                     $stillMissing = @()
                     foreach ($name in $expected) {
                         $exe = Join-Path $scriptsDir "$name.exe"
@@ -237,8 +139,6 @@ print(','.join(scripts))
 
     # Verify the dashboard deps specifically -- they're the most common thing
     # users hit and lazy-import errors from `hebri dashboard` are confusing.
-    # If tier 1 failed (the common case), [web] was still picked up by tiers
-    # 2-3; only tier 4 leaves you without it.
     $pythonExe = if (-not $NoVenv) { "$InstallDir\venv\Scripts\python.exe" } else { (& $UvCmd python find $PythonVersion) }
     if (Test-Path $pythonExe) {
         $webOk = $false
@@ -260,21 +160,20 @@ print(','.join(scripts))
         } catch { }
         $ErrorActionPreference = $prevEAP
         if (-not $webOk) {
-            Write-Warn "fastapi/uvicorn not importable -- `hebri dashboard` will not work."
-            Write-Info "Attempting targeted install of [web] extra as last resort..."
-            & $UvCmd pip install -e ".[web]"
-            if ($LASTEXITCODE -eq 0) {
-                Write-Success "[web] extra installed; `hebri dashboard` should now work."
-            } else {
-                Write-Warn "Could not install [web] extra. Run manually: uv pip install --python `"$pythonExe`" `"fastapi>=0.104,<1`" `"uvicorn[standard]>=0.24,<1`""
-            }
+            throw 'The verified runtime is missing dashboard dependencies. Retry the dependency stage.'
         }
         if (-not $webServerSyntaxOk) {
             throw "dashboard backend source failed syntax check: hermes_cli/web_server.py"
         }
     }
     
-    Pop-Location
+    Complete-VenvTransaction
+    } catch {
+        Restore-VenvBackup
+        throw
+    } finally {
+        Pop-Location
+    }
     
     Write-Success "All dependencies installed"
 }

@@ -58,7 +58,7 @@ else
 fi
 PYTHON_VERSION="3.11"
 PYTHON_SUPPORTED_RANGE=">=3.11,<3.14"  # pyproject requires-python; keep in sync
-NODE_VERSION="26"
+NODE_VERSION="22"
 
 # FHS-style root install layout (set by resolve_install_layout when applicable):
 #   code at /usr/local/lib/hebri-agent, command at /usr/local/bin/hebri,
@@ -592,6 +592,21 @@ detect_os() {
 # Dependency checks
 # ============================================================================
 
+# Check a release-pinned digest before executing or extracting a download.
+verify_download_sha256() {
+    local actual
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual="$(sha256sum "$1")" || return 1
+    else
+        actual="$(shasum -a 256 "$1")" || return 1
+    fi
+    actual="${actual%% *}"
+    if [ "$actual" != "$2" ]; then
+        log_error "Download integrity check failed: $1. The file was not executed."
+        return 1
+    fi
+}
+
 install_uv() {
     if [ "$DISTRO" = "termux" ]; then
         log_info "Termux detected — using Python's stdlib venv + pip instead of uv"
@@ -621,7 +636,7 @@ install_uv() {
     local _uv_install_log _uv_installer
     _uv_install_log="$(mktemp 2>/dev/null || echo "${TMPDIR:-$HERMES_HOME}/hermes-uv-install.$$.log")"
     _uv_installer="$(mktemp 2>/dev/null || echo "${TMPDIR:-$HERMES_HOME}/hermes-uv-installer.$$.sh")"
-    if ! curl -LsSf https://astral.sh/uv/install.sh -o "$_uv_installer" 2>"$_uv_install_log"; then
+    if ! curl --connect-timeout 30 --max-time 600 -LsSf https://github.com/astral-sh/uv/releases/download/0.13.6/uv-installer.sh -o "$_uv_installer" 2>"$_uv_install_log"; then
         log_error "Failed to download uv installer from https://astral.sh/uv/install.sh"
         log_info "curl output:"
         sed 's/^/    /' "$_uv_install_log" >&2
@@ -629,9 +644,13 @@ install_uv() {
         rm -f "$_uv_install_log" "$_uv_installer"
         exit 1
     fi
+    if ! verify_download_sha256 "$_uv_installer" 'f7a56e7afaec49a3bcbc3ac3cdbe917e7c6ce30e0d815308a12e531aa5ef23b7'; then
+        rm -f "$_uv_installer"
+        return 1
+    fi
     # UV_UNMANAGED_INSTALL tells the astral installer to place the binary
     # directly into $HERMES_HOME/bin instead of ~/.local/bin.
-    if UV_UNMANAGED_INSTALL="$HERMES_HOME/bin" sh "$_uv_installer" >>"$_uv_install_log" 2>&1; then
+    if run_with_timeout 600 env UV_UNMANAGED_INSTALL="$HERMES_HOME/bin" sh "$_uv_installer" >>"$_uv_install_log" 2>&1; then
         rm -f "$_uv_installer"
         if [ -x "$_managed_uv" ]; then
             UV_CMD="$_managed_uv"
@@ -1092,43 +1111,48 @@ install_node_line() {
     local node_os="$2"
     local node_arch="$3"
 
-    # Resolve the latest v${node_line}.x.x tarball name from the index page
-    local index_url="https://nodejs.org/dist/latest-v${node_line}.x/"
-    local tarball_name=""
-    # `tar xf` shells out to xz for .tar.xz; minimal Debian/DietPi/WSL images ship tar without it
-    # and the extract dies mid-way ("xz: Cannot exec"). Only pick .tar.xz when xz is present (#11197).
-    if command -v xz >/dev/null 2>&1; then
-        tarball_name=$(curl -fsSL "$index_url" \
-            | grep -oE "node-v${node_line}\.[0-9]+\.[0-9]+-${node_os}-${node_arch}\.tar\.xz" \
-            | head -1)
-    else
-        log_info "xz not found — using the .tar.gz Node.js archive"
-    fi
-
-    # Fallback to .tar.gz if .tar.xz not available (or xz is missing)
-    if [ -z "$tarball_name" ]; then
-        tarball_name=$(curl -fsSL "$index_url" \
-            | grep -oE "node-v${node_line}\.[0-9]+\.[0-9]+-${node_os}-${node_arch}\.tar\.gz" \
-            | head -1)
-    fi
-
-    if [ -z "$tarball_name" ]; then
-        log_warn "Could not find Node.js $node_line binary for $node_os-$node_arch"
-        return 1
-    fi
+    # One reviewed Node release across desktop/server platforms.
+    local index_url="https://nodejs.org/dist/v22.23.4/"
+    local extension=gz
+    command -v xz >/dev/null 2>&1 && extension=xz
+    local tarball_name="node-v22.23.4-${node_os}-${node_arch}.tar.${extension}"
+    local expected_hash
+    case "$tarball_name" in
+        node-v22.23.4-darwin-arm64.tar.gz) expected_hash='c9e1dbc748b33ed2d14f42445191ecaf14c56259c7a9a26d0042c49ec2b66428' ;;
+        node-v22.23.4-darwin-arm64.tar.xz) expected_hash='037650d0839f457747396f052073fb48333d31bf5abd3c98b74da20d89ebb1ad' ;;
+        node-v22.23.4-darwin-x64.tar.gz) expected_hash='efcc2b0db6f94bf53eddb038fe2b370277a042bd29e4f19b8f8e23598795b819' ;;
+        node-v22.23.4-darwin-x64.tar.xz) expected_hash='f42abca7aaac61efc57d49fb42ea84fc53bbeba9a749cb03a291ce6e4e7a69c1' ;;
+        node-v22.23.4-linux-arm64.tar.gz) expected_hash='f7a1e486dbc8b286847815b477d4fb5e9fb963ed4489c3e1588853d685f589f9' ;;
+        node-v22.23.4-linux-arm64.tar.xz) expected_hash='6287aa46b6c375d816e63ae66d024fbbfd70404825aabdfdf898a970871d2f4b' ;;
+        node-v22.23.4-linux-armv7l.tar.gz) expected_hash='4318e0c68f62e18583dae85eb645f55c7f2b8a2e8d1fffe91a2e8abd046880ab' ;;
+        node-v22.23.4-linux-armv7l.tar.xz) expected_hash='c9057c6a3b8fbb9651ed115c1e96d4a7281b7b9c9ca89fa05865c98ed7ffd437' ;;
+        node-v22.23.4-linux-ppc64le.tar.gz) expected_hash='6684903ee2795aafe639dc07203e8a51ed20ae161cf21b6da7c213c8abfed442' ;;
+        node-v22.23.4-linux-ppc64le.tar.xz) expected_hash='e4732f45e0cad787d6ba70c4eb6db45dbdb3f286f67dee429dbc6b4ff36eac43' ;;
+        node-v22.23.4-linux-s390x.tar.gz) expected_hash='0bdc80fa27331e7f416d1d8553b9aabbc3c158709dc32859e4e85724ac1ac302' ;;
+        node-v22.23.4-linux-s390x.tar.xz) expected_hash='07ae074fc218fc42e24c939df0dc0209443fb08eb5b2ed6d26b1bf6757781fff' ;;
+        node-v22.23.4-linux-x64-musl.tar.gz) expected_hash='63189402eaa222aabf51b4983e512592131cd2d4a9efc3ad9bf291fe74e3e4de' ;;
+        node-v22.23.4-linux-x64-musl.tar.xz) expected_hash='38355b952f0392b91703d38a0d9af84eb0ff77d69828ca4bc8cc3bc3af80a720' ;;
+        node-v22.23.4-linux-x64.tar.gz) expected_hash='b8492284c76a54baf58d61668dd0e41ee0fc98adabf9503d30f05d08f55b4406' ;;
+        node-v22.23.4-linux-x64.tar.xz) expected_hash='1805bcd35e6815559bd2eb97db438d3fdb0eb3a5e6a977b7c1badca76337e9ce' ;;
+        *) log_warn "No reviewed Node archive for $node_os-$node_arch"; return 1 ;;
+    esac
 
     local download_url="${index_url}${tarball_name}"
     local tmp_dir
     tmp_dir=$(mktemp -d)
 
     log_info "Downloading $tarball_name..."
-    if ! curl -fsSL "$download_url" -o "$tmp_dir/$tarball_name"; then
+    if ! curl --connect-timeout 30 --max-time 600 -fsSL "$download_url" -o "$tmp_dir/$tarball_name"; then
         log_warn "Download failed"
         rm -rf "$tmp_dir"
         return 1
     fi
 
-    log_info "Extracting to ~/.hermes/node/..."
+    if ! verify_download_sha256 "$tmp_dir/$tarball_name" "$expected_hash"; then
+        rm -rf "$tmp_dir"
+        return 1
+    fi
+    log_info "Extracting the verified Node runtime..."
     if [[ "$tarball_name" == *.tar.xz ]]; then
         tar xf "$tmp_dir/$tarball_name" -C "$tmp_dir"
     else
@@ -1259,16 +1283,9 @@ install_node() {
             ;;
     esac
 
-    # Try the target line first, then the two previous even-numbered (LTS)
-    # lines. Whether a line is usable cannot be known from its index page —
-    # see install_node_line — and stepping down beats adopting a Node that
-    # leaves every native dependency unbuildable.
-    local node_line
-    for node_line in "$NODE_VERSION" "$((NODE_VERSION - 2))" "$((NODE_VERSION - 4))"; do
-        if install_node_line "$node_line" "$node_os" "$node_arch"; then
-            return 0
-        fi
-    done
+    if install_node_line 22 "$node_os" "$node_arch"; then
+        return 0
+    fi
 
     log_warn "No usable Node.js release line found for $node_os-$node_arch"
     log_info "Install manually: https://nodejs.org/en/download/"
@@ -2412,7 +2429,7 @@ playwright_fallback_platform() {
 # An operator-provided PLAYWRIGHT_HOST_PLATFORM_OVERRIDE is always respected:
 # it is inherited by the first attempt, and the retry is skipped.
 #
-# Usage: run_playwright_install <timeout_seconds> npx playwright install [args...]
+# Usage: run_playwright_install <timeout_seconds> npx --no-install playwright install [args...]
 run_playwright_install() {
     local timeout_seconds="$1"
     shift
@@ -2534,7 +2551,7 @@ install_node_deps() {
         node_deps_workspace_args "$INSTALL_DIR"
         local npm_log
         npm_log="$(mktemp)"
-        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install "${NODE_DEPS_WORKSPACE_ARGS[@]}" --silent \
+        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm ci "${NODE_DEPS_WORKSPACE_ARGS[@]}" --no-fund --no-audit \
                 >"$npm_log" 2>&1; then
             log_error "npm install failed or timed out; Node.js dependencies were not installed"
             if [ -s "$npm_log" ]; then
@@ -2555,9 +2572,9 @@ install_node_deps() {
         if [ "$SKIP_BROWSER" = true ]; then
             log_info "Skipping Playwright/Chromium install (--skip-browser)"
             log_info "Browser tools will be unavailable until you run manually:"
-            log_info "  cd $INSTALL_DIR && npx playwright install chromium"
+            log_info "  cd $INSTALL_DIR && npx --no-install playwright install chromium"
             log_info "On apt-based systems, an admin also needs to run:"
-            log_info "  sudo npx playwright install-deps chromium"
+            log_info "  sudo npx --no-install playwright install-deps chromium"
         else
         log_info "Installing browser engine (Playwright Chromium)..."
         strip_snap_browser_override
@@ -2577,19 +2594,19 @@ install_node_deps() {
                     # exact command the admin needs to run separately.
                     if [ "$(id -u)" -eq 0 ] || (command -v sudo >/dev/null 2>&1 && sudo -n true 2>/dev/null); then
                         log_info "Installing Playwright Chromium with system dependencies..."
-                        cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install --with-deps chromium || {
+                        cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install --with-deps chromium || {
                             log_warn "Playwright browser installation failed — browser tools will not work."
-                            log_warn "Try running manually: cd $INSTALL_DIR && npx playwright install --with-deps chromium"
+                            log_warn "Try running manually: cd $INSTALL_DIR && npx --no-install playwright install --with-deps chromium"
                         }
                     else
                         log_warn "No sudo available — skipping system-library install (--with-deps)."
                         log_info "Ask an administrator to run, one time, as root:"
-                        log_info "  sudo npx playwright install-deps chromium"
+                        log_info "  sudo npx --no-install playwright install-deps chromium"
                         log_info "  (from $INSTALL_DIR, after Node.js deps are installed)"
                         log_info "Installing Chromium binary into this user's Playwright cache..."
-                        cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install chromium || {
+                        cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install chromium || {
                             log_warn "Playwright browser installation failed — browser tools will not work."
-                            log_warn "Try running manually: cd $INSTALL_DIR && npx playwright install chromium"
+                            log_warn "Try running manually: cd $INSTALL_DIR && npx --no-install playwright install chromium"
                         }
                     fi
                     ;;
@@ -2607,7 +2624,7 @@ install_node_deps() {
                             log_warn "  sudo pacman -S nss atk at-spi2-core cups libdrm libxkbcommon mesa pango cairo alsa-lib"
                         fi
                     fi
-                    cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install chromium || {
+                    cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install chromium || {
                         log_warn "Playwright browser installation failed — browser tools will not work."
                     }
                     ;;
@@ -2615,7 +2632,7 @@ install_node_deps() {
                     log_warn "Playwright does not support automatic dependency installation on RPM-based systems."
                     log_info "Install Chromium system dependencies manually before using browser tools:"
                     log_info "  sudo dnf install nss atk at-spi2-core cups-libs libdrm libxkbcommon mesa-libgbm pango cairo alsa-lib"
-                    cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install chromium || {
+                    cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install chromium || {
                         log_warn "Playwright browser installation failed — install dependencies above and retry."
                     }
                     ;;
@@ -2623,16 +2640,16 @@ install_node_deps() {
                     log_warn "Playwright does not support automatic dependency installation on zypper-based systems."
                     log_info "Install Chromium system dependencies manually before using browser tools:"
                     log_info "  sudo zypper install mozilla-nss libatk-1_0-0 at-spi2-core cups-libs libdrm2 libxkbcommon0 Mesa-libgbm1 pango cairo libasound2"
-                    cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install chromium || {
+                    cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install chromium || {
                         log_warn "Playwright browser installation failed — install dependencies above and retry."
                     }
                     ;;
                 *)
                     log_warn "Playwright does not support automatic dependency installation on $DISTRO."
                     log_info "Install Chromium/browser system dependencies for your distribution, then run:"
-                    log_info "  cd $INSTALL_DIR && npx playwright install chromium"
+                    log_info "  cd $INSTALL_DIR && npx --no-install playwright install chromium"
                     log_info "Browser tools will not work until dependencies are installed."
-                    cd "$INSTALL_DIR" && run_playwright_install 600 npx playwright install chromium || true
+                    cd "$INSTALL_DIR" && run_playwright_install 600 npx --no-install playwright install chromium || true
                     ;;
             esac
         fi
@@ -2640,153 +2657,13 @@ install_node_deps() {
         log_success "Browser engine setup complete"
     fi
 
-    # Install TUI dependencies
-    if [ -f "$INSTALL_DIR/ui-tui/package.json" ]; then
-        log_info "Installing TUI dependencies..."
-        cd "$INSTALL_DIR/ui-tui"
-        # Time-boxed: a stalled registry fetch would otherwise hang here (#39219).
-        # Report success only on actual success, same as node-deps above
-        # (#77003) — and fail the install outright (#85297).
-        # Capture npm output so failures are diagnosable (#87340).
-        local tui_npm_log
-        tui_npm_log="$(mktemp)"
-        if ! run_with_timeout "$NODE_DEPS_TIMEOUT" npm install --silent \
-                >"$tui_npm_log" 2>&1; then
-            log_error "TUI npm install failed or timed out; TUI dependencies were not installed"
-            if [ -s "$tui_npm_log" ]; then
-                log_error "npm output:"
-                cat "$tui_npm_log" >&2
-            fi
-            rm -f "$tui_npm_log"
-            restore_dirty_lockfiles "$INSTALL_DIR"
-            return 1
-        fi
-        rm -f "$tui_npm_log"
-        log_success "TUI dependencies installed"
-    fi
+    # The scoped root npm ci already installs the TUI and web workspaces.
 
     # Keep the checkout clean so `hebri update` doesn't autostash every run.
     restore_dirty_lockfiles "$INSTALL_DIR"
 }
 
-install_browser_use_cli() {
-    # The Browser Use CLI is the default browser backend when it is runnable
-    # (tools/browser_use_cli.py). Provision it here so fresh installs don't
-    # silently fall back to the built-in browser tools. Best-effort: any
-    # failure is non-fatal because browser_exec can still run via uvx and
-    # `hebri tools` can install it later.
-    if [ "$SKIP_BROWSER" = true ]; then
-        log_info "Skipping Browser Use CLI install (--skip-browser)"
-        return 0
-    fi
-    if [ "$DISTRO" = "termux" ]; then
-        return 0
-    fi
-    if [ -z "$UV_CMD" ]; then
-        log_info "Skipping Browser Use CLI install (uv unavailable)"
-        return 0
-    fi
-    # MANAGED-FIRST: only Hermes' managed copy short-circuits. A browser-use
-    # on the user's PATH is a side install — resolution prefers the managed
-    # copy, so it must be provisioned regardless.
-    if [ -x "$HERMES_HOME/bin/browser-use" ]; then
-        log_success "Browser Use CLI already installed"
-        return 0
-    fi
 
-    log_info "Installing Browser Use CLI (default browser backend)..."
-    # UV_TOOL_BIN_DIR keeps the binary inside Hermes' managed bin dir, where
-    # the browser tool resolves it — no reliance on the user's PATH.
-    if run_with_timeout 600 env UV_NO_CONFIG=1 UV_TOOL_BIN_DIR="$HERMES_HOME/bin" \
-        "$UV_CMD" tool install browser-use >/dev/null 2>&1; then
-        log_success "Browser Use CLI installed"
-    else
-        log_warn "Browser Use CLI install failed — browser automation falls back to built-in tools."
-        log_info "Install later with: $UV_CMD tool install browser-use  (or via 'hebri tools')"
-    fi
-}
-
-cua_driver_runtime_compatible() {
-    local driver_path version_output manifest_output
-    local major minor
-    driver_path="$(command -v cua-driver 2>/dev/null)" || return 1
-    version_output="$("$driver_path" --version 2>/dev/null)" || return 1
-    if [[ ! "$version_output" =~ ([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
-        return 1
-    fi
-    major="${BASH_REMATCH[1]}"
-    minor="${BASH_REMATCH[2]}"
-    if (( major == 0 && minor < 20 )); then
-        return 1
-    fi
-    manifest_output="$("$driver_path" manifest 2>/dev/null)" || return 1
-    local required
-    for required in \
-        '"mcp_invocation"' \
-        '"--socket"' \
-        '"--grant"' \
-        '"--permission-mode"' \
-        '"--capability-manifest"' \
-        '"--approve-capability-manifest"' \
-        '"--embedded"'; do
-        case "$manifest_output" in
-            *"$required"*) ;;
-            *) return 1 ;;
-        esac
-    done
-    return 0
-}
-
-install_computer_use_driver() {
-    # cua-driver powers the computer_use toolset (background desktop control).
-    # Provision it at install time so enabling the tool later — via
-    # `hebri tools`, the dashboard, or the desktop app — is a config flip,
-    # not a surprise multi-minute binary fetch (the confusion this fixes:
-    # users had to discover `hebri computer-use install` on their own).
-    # Best-effort and non-fatal: the enable paths still lazy-install via
-    # install_cua_driver() when this step was skipped or failed.
-    if [ "$SKIP_COMPUTER_USE" = true ]; then
-        log_info "Skipping Computer Use (cua-driver) install (--skip-computer-use)"
-        return 0
-    fi
-    case "$DISTRO" in
-        termux)
-            return 0
-            ;;
-    esac
-    if command -v cua-driver >/dev/null 2>&1; then
-        if cua_driver_runtime_compatible; then
-            log_success "Computer Use driver (cua-driver) already installed and compatible"
-            return 0
-        fi
-        log_warn "Existing cua-driver is old or incomplete; repairing it"
-    fi
-    # Non-admin macOS accounts can't receive the CuaDriver.app bundle in
-    # /Applications; skip cleanly instead of failing loudly (#47865 class).
-    if [ "$(uname -s)" = "Darwin" ] && [ -d /Applications ] && [ ! -w /Applications ]; then
-        log_info "Skipping Computer Use driver (cua-driver): /Applications is not writable"
-        return 0
-    fi
-
-    log_info "Installing Computer Use driver (cua-driver)..."
-    # Same upstream installer `hebri computer-use install` runs; time-boxed
-    # so a stalled GitHub download can't hang the Hermes install. The
-    # upstream installer serializes with its own lock (600s stale window),
-    # so give it a ceiling above that — matching Hermes'
-    # _CUA_INSTALLER_TIMEOUT (660s).
-    local cua_log
-    cua_log="$(mktemp)"
-    if run_with_timeout 660 /bin/bash -c \
-        'curl -fsSL https://raw.githubusercontent.com/trycua/cua/main/libs/cua-driver/scripts/install.sh | /bin/bash' \
-        >"$cua_log" 2>&1; then
-        log_success "Computer Use driver installed (enable via 'hebri tools' → Computer Use)"
-    else
-        log_warn "Computer Use driver install failed — it will install on demand when you enable the tool."
-        log_info "Install later with: hebri computer-use install"
-        tail -n 5 "$cua_log" >&2 || true
-    fi
-    rm -f "$cua_log"
-}
 
 run_setup_wizard() {
     if [ "$RUN_SETUP" = false ]; then
@@ -3309,7 +3186,7 @@ install_desktop_voice_deps() {
         return 0
     fi
     log_info "Installing voice + wake-word dependencies (onnxruntime, faster-whisper — 1-3min)..."
-    if (cd "$INSTALL_DIR" && $UV_CMD pip install -e ".[wake,voice]") ; then
+    if (cd "$INSTALL_DIR" && source "$INSTALL_DIR/scripts/lib/install-dependencies.sh" && run_locked_uv_sync "$INSTALL_DIR/venv" --extra wake --extra voice --inexact) ; then
         log_success "Voice + wake-word dependencies installed"
     else
         log_warn "Voice/wake dependency install failed — they will lazy-install at first use"
@@ -3352,8 +3229,8 @@ install_desktop() {
     #    can report "up to date" against a stale node_modules/.package-lock.json
     #    marker while node_modules is actually empty (Windows workspace-hoisting
     #    flake) — leaving tsc/typescript unresolved and `npm run pack`'s
-    #    `tsc -b` failing with no obvious cause. Fall back to `npm install`
-    #    only if `npm ci` is unavailable or the lockfile is out of sync.
+    #    `tsc -b` failing with no obvious cause. A stale lock must fail the
+    #    install so the user can retry a corrected release.
     #
     #    Both the install and the build below are wrapped in a hard wall-clock
     #    timeout (#39219): the Electron binary (~150MB) is fetched from GitHub,
@@ -3363,23 +3240,9 @@ install_desktop() {
     #    converts to a non-zero exit, which feeds the existing self-heal /
     #    mirror-fallback escalation instead of hanging the whole install.
     #
-    #    The `npm ci` and its `npm install` fallback SHARE one budget: a stalled
-    #    link wedges both identically, so giving each a full DESKTOP_BUILD_TIMEOUT
-    #    would double the worst-case hang. We compute a single deadline and pass
-    #    the remaining seconds to the fallback (min 30s so it still gets a real
-    #    attempt if `npm ci` failed fast rather than stalling).
     log_info "Installing desktop workspace dependencies (includes Electron ~150MB, 1-3min)..."
-    local _deps_start _deps_remaining
-    _deps_start=$(date +%s)
     if run_with_timeout "$DESKTOP_BUILD_TIMEOUT" bash -c 'cd "$1" && npm ci --include=optional && node apps/desktop/scripts/ensure-rolldown-binding.mjs' _ "$INSTALL_DIR"; then
         log_success "Desktop workspace dependencies installed"
-    elif _deps_remaining=$(( DESKTOP_BUILD_TIMEOUT - ($(date +%s) - _deps_start) )); \
-         [ "$_deps_remaining" -lt 30 ] && _deps_remaining=30; \
-         run_with_timeout "$_deps_remaining" bash -c 'cd "$1" && npm install --include=optional && node apps/desktop/scripts/ensure-rolldown-binding.mjs' _ "$INSTALL_DIR"; then
-        log_success "Desktop workspace dependencies installed"
-    elif _electron_pkg_staged_missing_dist "$INSTALL_DIR"; then
-        log_warn "Desktop dependency install failed with a missing Electron dist; attempting self-heal..."
-        _restore_electron_dist_with_fallback "$INSTALL_DIR" || true
     else
         log_error "Desktop workspace npm install failed"
         # Common cause: a previous 'sudo npm'/'sudo npx' left root-owned files in
@@ -3597,8 +3460,7 @@ run_stage_body() {
             check_node
             install_node_deps || return
             install_uv
-            install_browser_use_cli
-            install_computer_use_driver
+            log_info "Optional Browser Use and Computer Use are installed when enabled via hebri tools."
             ;;
         path)
             detect_os
@@ -3715,8 +3577,7 @@ main() {
     setup_venv
     install_deps
     install_node_deps || return
-    install_browser_use_cli
-    install_computer_use_driver
+    log_info "Optional Browser Use and Computer Use are installed when enabled via hebri tools."
     setup_path
     copy_config_templates
     run_setup_wizard

@@ -1,3 +1,22 @@
+﻿# Keep desktop build/native dependencies out of backend first-launch setup.
+function Get-HebriRuntimeNpmArguments {
+    param([string]$Directory)
+    if (-not (Test-Path (Join-Path $Directory 'package-lock.json') -PathType Leaf)) {
+        throw 'The release is missing package-lock.json. Re-download Hebri before retrying.'
+    }
+    $arguments = 'ci --no-fund --no-audit'
+    $workspaces = @('ui-tui', 'web') | Where-Object {
+        Test-Path (Join-Path $Directory "$_\package.json") -PathType Leaf
+    }
+    if ($workspaces) {
+        foreach ($workspace in $workspaces) { $arguments += " --workspace $workspace" }
+        $arguments += ' --include-workspace-root'
+    } else {
+        $arguments += ' --workspaces=false'
+    }
+    return $arguments
+}
+
 # Node workspace provisioning, loaded after the source checkout is available.
 function Invoke-HebriNodeInstall {
     if (-not $HasNode) {
@@ -81,7 +100,7 @@ function Invoke-HebriNodeInstall {
             # via the returned exit code, which is reliable regardless of
             # stderr noise.
             $ErrorActionPreference = "Continue"
-            $code = _Invoke-NativeWithTimeout $npmPath "install --silent" `
+            $code = _Invoke-NativeWithTimeout $npmPath (Get-HebriRuntimeNpmArguments $installDir) `
                 $installDir $logPath $nodeDepsTimeoutSec
             $ErrorActionPreference = $prevEAP
             if ($code -eq 0) {
@@ -126,6 +145,9 @@ function Invoke-HebriNodeInstall {
         $browserLog = "$env:TEMP\hermes-npm-browser-$(Get-Random).log"
         $browserNpmOk = _Run-NpmInstall "Browser tools" $InstallDir $browserLog $npmExe
 
+        if (-not $browserNpmOk) {
+            throw "Runtime Node dependencies failed. Review $browserLog and retry."
+        }
         # Install Playwright Chromium (mirrors scripts/install.sh behaviour for
         # Linux).  Without this, tools/browser_tool.py::check_browser_requirements
         # returns False (no Chromium under %LOCALAPPDATA%\ms-playwright), and the
@@ -189,7 +211,7 @@ function Invoke-HebriNodeInstall {
                     # the same 600s guard via run_playwright_install since
                     # #39219.
                     $ErrorActionPreference = "Continue"
-                    $pwCode = _Invoke-NativeWithTimeout $npxExe "--yes playwright install chromium" `
+                    $pwCode = _Invoke-NativeWithTimeout $npxExe "--no-install playwright install chromium" `
                         $InstallDir $pwLog $nodeDepsTimeoutSec
                     $ErrorActionPreference = $prevEAP
                     if ($pwCode -eq 0) {
@@ -228,15 +250,6 @@ function Invoke-HebriNodeInstall {
         }
     }
 
-    # TUI
-    $tuiDir = "$InstallDir\ui-tui"
-    if (Test-Path "$tuiDir\package.json") {
-        Write-Info "Installing TUI dependencies..."
-        $tuiLog = "$env:TEMP\hermes-npm-tui-$(Get-Random).log"
-        [void](_Run-NpmInstall "TUI" $tuiDir $tuiLog $npmExe)
-    }
-
-    Install-BrowserUseCli
-    Install-CuaDriver
+    # The scoped root install includes the TUI; do not install the workspace twice.
+    Write-Info "Optional Browser Use and Computer Use can be installed when enabled via 'hebri tools'."
 }
-

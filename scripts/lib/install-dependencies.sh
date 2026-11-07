@@ -9,6 +9,7 @@ run_locked_uv_sync() {
     # directory. Keep HOME unchanged so caches, credentials, and git continue
     # to work normally.
     local project_env="$1"
+    shift
     local isolated_uv_config
     local sync_rc
     isolated_uv_config="$(mktemp -d)" || return 1
@@ -17,7 +18,7 @@ run_locked_uv_sync() {
         unset UV_NO_CONFIG UV_CONFIG_FILE
         export XDG_CONFIG_HOME="$isolated_uv_config"
         export XDG_CONFIG_DIRS="$isolated_uv_config"
-        UV_PROJECT_ENVIRONMENT="$project_env" $UV_CMD sync --extra all --locked
+        UV_PROJECT_ENVIRONMENT="$project_env" run_with_timeout 600 "$UV_CMD" sync --extra all --no-dev --locked "$@"
     )
     sync_rc=$?
     rmdir "$isolated_uv_config" 2>/dev/null || true
@@ -31,7 +32,7 @@ hebri_install_deps() {
     # but the bootstrap runs install stages (`venv`, `python-deps`) as separate
     # processes, so an export from setup_venv does NOT survive into a separate
     # python-deps invocation. Re-deriving it here covers that path. Without it,
-    # an inherited UV_PYTHON=3.14 makes the uv sync/pip tiers below recreate the
+    # an inherited UV_PYTHON=3.14 makes the locked sync below recreate the
     # venv at 3.14 and fail the maturin source build (no cp314 wheels yet).
     if [ "$DISTRO" != "termux" ] && [ -x "$INSTALL_DIR/venv/bin/python" ]; then
         export UV_PYTHON="$INSTALL_DIR/venv/bin/python"
@@ -97,48 +98,11 @@ hebri_install_deps() {
         export VIRTUAL_ENV="$INSTALL_DIR/venv"
     fi
 
-    # On Debian/Ubuntu (including WSL), some Python packages need build tools.
-    # Check and offer to install them if missing.
-    if [ "$DISTRO" = "ubuntu" ] || [ "$DISTRO" = "debian" ]; then
-        local need_build_tools=false
-        for pkg in gcc python3-dev libffi-dev; do
-            if ! dpkg -s "$pkg" &>/dev/null; then
-                need_build_tools=true
-                break
-            fi
-        done
-        if [ "$need_build_tools" = true ]; then
-            log_info "Some build tools may be needed for Python packages..."
-            if command -v sudo &> /dev/null; then
-                if sudo -n true 2>/dev/null; then
-                    sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq build-essential python3-dev libffi-dev >/dev/null 2>&1 || true
-                    log_success "Build tools installed"
-                else
-                    log_info "sudo is needed ONLY to install build tools (build-essential, python3-dev, libffi-dev) via apt."
-                    log_info "Hebri itself does not require or retain root access."
-                    if prompt_yes_no "Install build tools?" "yes"; then
-                        sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get update -qq && sudo DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y -qq build-essential python3-dev libffi-dev >/dev/null 2>&1 || true
-                        log_success "Build tools installed"
-                    fi
-                fi
-            fi
-        fi
-    fi
-
-    # Install the main package in editable mode with all extras.
-    #
-    # Hash-verified install (Tier 0) — when uv.lock is present, prefer
-    # `uv sync --locked`. The lockfile records SHA256 hashes for every
-    # transitive, so a compromised transitive (different hash than what
-    # we shipped) is REJECTED by the resolver. This is the *only* path
-    # that protects against the "direct dep is fine, but the dep's dep
-    # got worm-poisoned overnight" failure mode. All `uv pip install`
-    # tiers below re-resolve transitives fresh from PyPI without any
-    # hash verification — they exist to keep installs working when the
-    # lockfile is stale, missing, or out-of-sync with the current
-    # extras spec, NOT because they're equivalent in posture.
+    # Require the reviewed lock, including artifact hashes and project policy.
+    # A failed or stale lock is an installation error, never a reason to resolve
+    # a different dependency set on the user's machine.
     if [ -f "uv.lock" ]; then
-        log_info "Trying tier: hash-verified (uv.lock) ..."
+        log_info "Installing verified dependencies (uv.lock) ..."
         log_info "(this resolves + downloads the curated [all] set — first run on a"
         log_info " fresh venv can take 1-5 minutes; uv prints progress below)"
         # Stream uv's progress directly to the user instead of swallowing
@@ -180,114 +144,9 @@ hebri_install_deps() {
             log_success "All dependencies installed"
             return 0
         fi
-        log_warn "uv.lock sync failed (see uv output above), falling back to PyPI resolve..."
-    else
-        log_info "uv.lock not found — falling back to PyPI resolve (no hash verification)"
-    fi
-
-    # Multi-tier fallback. The point of the tiers is that ONE compromised
-    # PyPI package (a worm-poisoned release that gets quarantined, like
-    # mistralai 2.4.6 in May 2026) shouldn't be able to silently demote a
-    # fresh install all the way down to "core only" — the user should keep
-    # everything else they signed up for.
-    #
-    # Tier 1: [all] — the curated extra in pyproject.toml.
-    # Tier 2: [all] minus the currently-broken extras list (_BROKEN_EXTRAS).
-    #         Edit _BROKEN_EXTRAS below when something on PyPI breaks; this
-    #         lets users keep the rest of [all] when one transitive is
-    #         unavailable. The list of [all]'s contents is parsed from
-    #         pyproject.toml at runtime — there is NO hand-mirrored copy
-    #         to drift out of sync. If you want to change what [all]
-    #         contains, edit pyproject.toml only.
-    # Tier 3: bare `.` — last-resort so at least the core CLI launches.
-    #         Skipped tiers like "PyPI-only extras (no git deps)" used to
-    #         exist to dodge [rl] / [matrix] git+sdist deps; those are no
-    #         longer in [all] post-2026-05-12 lazy-install migration, so
-    #         a separate PyPI-only tier had no remaining content.
-    local _BROKEN_EXTRAS=()  # populate when an extra becomes unresolvable
-
-    # Parse [project.optional-dependencies].all from pyproject.toml.
-    # tomllib is stdlib on Python 3.11+ which uv's bootstrap guarantees.
-    # Falls back to a hand list if parse fails — defensive only.
-    local _ALL_EXTRAS_CSV
-    _ALL_EXTRAS_CSV="$(
-        "$PYTHON_PATH" - <<'PY' 2>/dev/null
-import re, sys, tomllib
-try:
-    with open("pyproject.toml", "rb") as fh:
-        data = tomllib.load(fh)
-    specs = data["project"]["optional-dependencies"]["all"]
-    extras = []
-    for s in specs:
-        m = re.search(r"hermes-agent\[([\w-]+)\]", s)
-        if m:
-            extras.append(m.group(1))
-    print(",".join(extras))
-except Exception as e:
-    print("", file=sys.stderr)
-    sys.exit(1)
-PY
-    )"
-    if [ -z "$_ALL_EXTRAS_CSV" ]; then
-        log_warn "Could not parse [all] from pyproject.toml; falling back to .[all] only."
-        _ALL_EXTRAS_CSV=""
-    fi
-
-    # Build "[all] minus broken" spec by filtering the parsed list.
-    local _SAFE_SPEC=".[all]"
-    if [ -n "$_ALL_EXTRAS_CSV" ] && [ "${#_BROKEN_EXTRAS[@]}" -gt 0 ]; then
-        local _SAFE_EXTRAS=()
-        local _e _b _skip
-        IFS=',' read -ra _ALL_EXTRAS_ARR <<< "$_ALL_EXTRAS_CSV"
-        for _e in "${_ALL_EXTRAS_ARR[@]}"; do
-            _skip=false
-            for _b in "${_BROKEN_EXTRAS[@]}"; do
-                if [ "$_e" = "$_b" ]; then _skip=true; break; fi
-            done
-            if [ "$_skip" = false ]; then _SAFE_EXTRAS+=("$_e"); fi
-        done
-        _SAFE_SPEC=".[$(IFS=,; echo "${_SAFE_EXTRAS[*]}")]"
-    fi
-
-    ALL_INSTALL_LOG=$(mktemp)
-    local _installed=false
-    local _tier_name=""
-
-    install_tier() {
-        local name="$1"; local spec="$2"
-        log_info "Trying tier: $name ..."
-        if $UV_CMD pip install -e "$spec" 2>"$ALL_INSTALL_LOG"; then
-            log_success "Main package installed ($name)"
-            _installed=true
-            _tier_name="$name"
-            return 0
-        fi
-        log_warn "Tier '$name' failed. Top of pip output:"
-        head -5 "$ALL_INSTALL_LOG" | sed 's/^/    /' >&2
+        log_error "Verified Python installation failed. Check the uv output and retry; the dependency lock was preserved."
         return 1
-    }
-
-    install_tier "all" ".[all]" \
-        || install_tier "all minus known-broken (${_BROKEN_EXTRAS[*]:-none})" "$_SAFE_SPEC" \
-        || install_tier "core only (no extras)" "."
-
-    rm -f "$ALL_INSTALL_LOG"
-
-    if [ "$_installed" = false ]; then
-        log_error "Package installation failed even with no extras."
-        log_info "Check that build tools are installed: sudo apt install build-essential python3-dev"
-        log_info "Then re-run: cd $INSTALL_DIR && uv pip install -e '.[all]'"
-        exit 1
     fi
-
-    if [ "$_tier_name" != "all" ]; then
-        log_warn "Note: installed via fallback tier ($_tier_name)."
-        log_info "Some optional features may be missing. After resolving any"
-        log_info "PyPI/network issue, re-run: $UV_CMD pip install -e '.[all]'"
-    fi
-
-    log_success "Main package installed"
-
-    log_success "All dependencies installed"
+    log_error "The release is missing uv.lock. Re-download Hebri before retrying."
+    return 1
 }
-
