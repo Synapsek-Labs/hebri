@@ -281,7 +281,7 @@ def _get_endpoint_metadata_cache_path() -> Path:
 
 def _endpoint_disk_cache_get(normalized: str) -> Optional[Dict[str, Dict[str, Any]]]:
     """Fresh cross-process memo of a remote ``/models`` probe (same TTL as in-memory): one-shot
-    runs (``hermes -q``, cron) start cold and Nous bypasses the persistent context cache, so
+    runs (``hebri -q``, cron) start cold and Nous bypasses the persistent context cache, so
     without this every launch paid the live probe. Local endpoints are never memoized."""
     models = _ttl_memo_get(_get_endpoint_metadata_cache_path(), normalized, _ENDPOINT_MODEL_CACHE_TTL, ts_key="at", value_key="models")
     return models if isinstance(models, dict) else None
@@ -322,7 +322,7 @@ MINIMUM_CONTEXT_LENGTH = 64_000
 # "measured" mode replaces the fixed 64K wall with a measured fit-check:
 #     window >= O + max_tokens + W
 # where O is the REAL per-profile overhead (system prompt + resident tool
-# schema + framing, the same surface `hermes prompt-size` reports),
+# schema + framing, the same surface `hebri prompt-size` reports),
 # max_tokens is the output reservation, and W is the minimum working window
 # the conversation needs. MINIMUM_CONTEXT_LENGTH above keeps two jobs:
 #   (1) the "fixed" mode — a one-line rollback to today's exact behaviour; and
@@ -373,7 +373,7 @@ def _fitcheck_tokens(text: str) -> int:
 def measure_overhead_tokens(agent) -> Optional[int]:
     """O = system prompt + resident tool schema + framing, in tokens.
 
-    Measures the same real per-profile surface that ``hermes prompt-size``
+    Measures the same real per-profile surface that ``hebri prompt-size``
     reports (``build_system_prompt(agent)`` + the resident ``agent.tools``
     array). Returns ``None`` when the surface cannot be measured; the caller
     must then fall back to the existing fixed admission floor."""

@@ -90,13 +90,13 @@ describe('hub pick messages', () => {
     const frame = openHubBrowser()
 
     postPick(
-      { identifier: 'nous/web-research', name: 'Web Research', type: 'hermes-skill-pick' },
+      { identifier: '@owner/web-research', name: 'Web Research', type: 'hermes-skill-pick' },
       {
         source: frame.contentWindow
       }
     )
 
-    expect(installCalls()).toEqual([['skills.manage', { action: 'install', query: 'nous/web-research' }]])
+    expect(installCalls()).toEqual([['skills.manage', { action: 'install', query: '@owner/web-research' }]])
   })
 
   it('routes an existing source-scoped bot install through its owner connection', async () => {
@@ -175,7 +175,7 @@ describe('hub pick messages', () => {
   it('regression: refuses identifiers outside the slug charset', () => {
     const frame = openHubBrowser()
 
-    for (const identifier of ['../../etc/passwd', 'skill; rm -rf /', '-flag', 'name with spaces', '']) {
+    for (const identifier of ['../../etc/passwd', 'owner/../other', 'owner//skill', '@owner/../../other', 'skill; rm -rf /', '-flag', 'name with spaces', '']) {
       postPick({ identifier, name: 'Web Research', type: 'hermes-skill-pick' }, { source: frame.contentWindow })
     }
 

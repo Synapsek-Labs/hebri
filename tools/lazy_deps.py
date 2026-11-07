@@ -111,7 +111,7 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     # install on the sealed Docker image (durable-target only).
     "memory.supermemory": ("supermemory==3.50.0",),
     # Plugin-owned SDKs mirror the range their plugin.yaml declares instead of an exact pin: an exact pin
-    # made _is_satisfied() reject every newer compatible release, so `hermes update` kept downgrading a
+    # made _is_satisfied() reject every newer compatible release, so `hebri update` kept downgrading a
     # working newer client and broke daemons whose DB it had migrated (#86992, #39424, #98407).
     "memory.mem0": ("mem0ai>=2.0.10,<3",),
 
@@ -204,11 +204,11 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
         "httpx2==2.7.0",  # mcp 2.x HTTP stack — sync with pyproject [computer-use]
         "starlette==1.3.1",
     ),
-    # HF Agent Trace Viewer upload (hermes trace upload / /upload-trace). huggingface-hub is a SHARED
+    # HF Agent Trace Viewer upload (hebri trace upload / /upload-trace). huggingface-hub is a SHARED
     # dependency: transformers (pulled by sentence-transformers when a memory plugin runs local embeddings,
     # e.g. the catalog hindsight plugin's local_embedded mode) requires >=1.5.0,<2, and
     # faster-whisper/tokenizers depend on it transitively. Because active_features() marks a feature active
-    # from mere package presence, the `hermes update` lazy-refresh pass re-asserts THIS pin on every install
+    # from mere package presence, the `hebri update` lazy-refresh pass re-asserts THIS pin on every install
     # where hub is present — so an exact pin below 1.5.0 force-downgrades the shared package and breaks
     # those embedding daemons on startup (#60783). Policy: keep the exact pin (no ranges — security
     # posture), but it MUST stay inside transformers' accepted window and MUST match uv.lock so the whole
@@ -376,7 +376,7 @@ def _installed_version(spec: str) -> Optional[str]:
 
 
 def _is_satisfied(spec: str) -> bool:
-    """Present AND inside the spec's version range, so ``hermes update`` propagates pin bumps to
+    """Present AND inside the spec's version range, so ``hebri update`` propagates pin bumps to
     installed backends. Unparseable specs/versions or a missing ``packaging`` count as satisfied — err
     toward "don't churn"."""
     installed = _installed_version(spec)
@@ -529,7 +529,7 @@ def _run_installer(cmd: list[str], **kw) -> subprocess.CompletedProcess:
 
 
 # Whose dependency-security policy an install runs under. ``core``: Hermes's own packages (LAZY_DEPS
-# extras, refreshed by ``hermes update``) resolve under the checkout's ``[tool.uv]`` policy — the 14-day
+# extras, refreshed by ``hebri update``) resolve under the checkout's ``[tool.uv]`` policy — the 14-day
 # ``exclude-newer`` quarantine and its per-package exceptions. ``plugin``: a plugin's declared
 # ``python_dependencies`` follow the PLUGIN's own policy (maintainer ruling: "plugins don't have to abide
 # by our 14 day rule; they can have their own security policy on that. Only Hermes' dependencies themselves
@@ -802,12 +802,12 @@ def install_specs(specs: list[str] | tuple[str, ...], *, timeout: int = 300,
 
 def active_features() -> list[str]:
     """Features whose ANCHOR package (first spec) is present at any version — shared helpers like
-    asyncpg are deliberately not proof a backend was enabled. Drives ``hermes update``."""
+    asyncpg are deliberately not proof a backend was enabled. Drives ``hebri update``."""
     return [f for f, specs in LAZY_DEPS.items() if specs and _is_present(specs[0])]
 
 
 def refresh_active_features(*, prompt: bool = False) -> dict[str, str]:
-    """Re-run ``ensure`` for every active feature (``hermes update``); returns
+    """Re-run ``ensure`` for every active feature (``hebri update``); returns
     ``{feature: "current" | "refreshed" | "failed: <reason>" | "skipped: <reason>"}``. Never raises."""
     return _refresh_features(active_features(), prompt=prompt, restoring=False)
 
