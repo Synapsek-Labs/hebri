@@ -376,6 +376,8 @@ def _add_api_key_credential(args, provider: str, pool) -> PooledCredential:
 
 def auth_add_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", ""))
+    if provider == "synapsek":
+        return _synapsek_account_action("login", args)
     if dispatch_plugin_auth("add", args, provider):
         return
     configured_provider = _configured_provider_entry(provider)
@@ -663,6 +665,8 @@ def auth_refresh_command(args) -> None:
 
 def auth_status_command(args) -> None:
     provider = _normalize_provider(getattr(args, "provider", "") or "")
+    if provider == "synapsek":
+        return _synapsek_account_action("status", args)
     if not provider:
         raise SystemExit("Provider is required. Example: `hebri auth status spotify`.")
     if dispatch_plugin_auth("status", args, provider):
@@ -694,6 +698,8 @@ def auth_logout_command(args) -> None:
     # The built-in path keeps receiving the raw provider id (byte-for-byte
     # unchanged); the normalized alias is used only for the handler lookup.
     raw_provider = getattr(args, "provider", None)
+    if _normalize_provider(raw_provider or "") == "synapsek":
+        return _synapsek_account_action("logout", args)
     if dispatch_plugin_auth("logout", args, _normalize_provider(raw_provider or "")):
         return
     auth_mod.logout_command(SimpleNamespace(provider=raw_provider))
@@ -803,6 +809,8 @@ def _pick_provider(prompt: str = "Provider") -> str:
 
 def _interactive_add() -> None:
     provider = _pick_provider("Provider to add credential for")
+    if provider == "synapsek":
+        return _synapsek_account_action("login", SimpleNamespace())
     if dispatch_plugin_auth("add", SimpleNamespace(provider=provider), provider):
         return
     configured_provider = _configured_provider_entry(provider)
@@ -897,7 +905,21 @@ _AUTH_ACTIONS = {
     "spotify": auth_spotify_command}
 
 
+def _synapsek_account_action(action, args) -> None:
+    from hermes_cli.synapsek_account import cli
+    if action == "login" and (getattr(args, "api_key", None)
+                              or getattr(args, "auth_type", None) in {"api_key", "api-key"}):
+        raise SystemExit("Synapsek uses account sign-in: hebri auth synapsek login")
+    return cli(SimpleNamespace(synapsek_action=action, no_browser=getattr(args, "no_browser", False)))
+
+
 def auth_command(args) -> None:
+    if getattr(args, "auth_action", "") == "synapsek":
+        from hermes_cli.synapsek_account import cli
+        return cli(args)
+    if (_normalize_provider(getattr(args, "provider", "") or "") == "synapsek"
+            and getattr(args, "auth_action", "") not in {"add", "status", "logout"}):
+        raise SystemExit("Synapsek accounts are separate from API-key pools. Use hebri auth synapsek login, status or logout.")
     handler = _AUTH_ACTIONS.get(getattr(args, "auth_action", ""))
     if handler is not None:
         handler(args)

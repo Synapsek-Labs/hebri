@@ -311,8 +311,15 @@ def _tui_need_rebuild(root: Path) -> bool:
         return True
 
     try:
-        output_mtime = (root / "dist" / "entry.js").stat().st_mtime
+        output_mtime = min((root / "dist" / name).stat().st_mtime for name in ("entry.js", "account-client.js"))
     except OSError:
+        return True
+
+    account_inputs = [root.parent / "scripts" / "synapsek-account-client.ts"]
+    account_inputs += [root.parent / "apps" / "desktop" / "electron" / name for name in (
+        "synapsek-account.ts", "synapsek-account-types.ts", "synapsek-inference-bridge.ts",
+        "native-oauth.ts", "native-auth-decisions.ts", "api-transport.ts")]
+    if any(path.is_file() and path.stat().st_mtime > output_mtime for path in account_inputs):
         return True
 
     for path in _iter_tui_build_inputs(root):

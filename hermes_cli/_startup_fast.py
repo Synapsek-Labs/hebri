@@ -184,9 +184,9 @@ def print_fast_version_info(*, check_updates: bool = True) -> None:
 
         print(format_banner_version_label())
     except Exception:
-        from hermes_cli import __release_date__, __version__
+        from hermes_cli.product_version import product_version
 
-        print(f"Hebri v{__version__} ({__release_date__})")
+        print(f"Hebri v{product_version()}")
     print(f"Install directory: {project_root_str()}")
     # Authoritative resolver first (code-scoped stamp → managed → nix → git → pip; also self-heals
     # poisoned shared-home 'docker' stamps); cheap stdlib stamp probe only if it fails.

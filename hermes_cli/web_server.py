@@ -981,6 +981,7 @@ from hermes_cli.web_routers import (  # noqa: E402
     git as _git_routes,
     local_models as _local_models_routes,
     status as _status_routes,
+    synapsek as _synapsek_routes,
     actions as _actions_routes,
     audio as _audio_routes,
     display as _display_routes,
@@ -1009,6 +1010,7 @@ app.include_router(_git_routes.router)
 app.include_router(_local_models_routes.router)
 app.include_router(_devices_routes.router)
 app.include_router(_status_routes.router)
+app.include_router(_synapsek_routes.router)
 app.include_router(_actions_routes.router)
 app.include_router(_audio_routes.router)
 app.include_router(_display_routes.router)

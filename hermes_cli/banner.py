@@ -485,7 +485,8 @@ def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
 
 def format_banner_version_label() -> str:
     """Return the version label shown in the startup banner title."""
-    base = f"Hebri v{VERSION} ({RELEASE_DATE})"
+    from hermes_cli.product_version import product_version
+    base = f"Hebri v{product_version()} · engine {VERSION}"
     state = get_git_banner_state()
     if not state:
         return base

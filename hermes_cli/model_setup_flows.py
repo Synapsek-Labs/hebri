@@ -911,6 +911,9 @@ def _api_key_provider_model_list(provider_id: str, pconfig, existing_key: str, k
 
 def _model_flow_api_key_provider(config, provider_id, current_model=""):
     """Generic flow for API-key providers (z.ai, MiniMax, OpenCode, etc.)."""
+    if provider_id == "synapsek":
+        from hermes_cli.synapsek_account import model_flow
+        return model_flow(current_model)
     from hermes_cli.auth import PROVIDER_REGISTRY
     from hermes_cli.config import save_env_value, load_config
     from hermes_cli.models import opencode_model_api_mode, normalize_opencode_model_id

@@ -44,30 +44,8 @@ def _find_stale_dashboard_pids(*, exclude_pids: set[int] | None = None,
 
 def _parse_dashboard_runtime(command: str) -> tuple[str, str, int] | None:
     """Best-effort parse of a dashboard/server cmdline into mode, host, and port."""
-    mode = None
-    for candidate in ("dashboard", "serve"):
-        patterns = (f"hermes {candidate}", f"hermes_cli.main {candidate}", f"hermes_cli/main.py {candidate}")
-        if any(pattern in command for pattern in patterns):
-            mode = candidate
-            break
-    if mode is None:
-        return None
-
-    port = 9119
-    host = "127.0.0.1"
-
-    port_match = re.search(r"(?:^|\s)--port(?:=|\s+)(\d+)", command)
-    if port_match:
-        try:
-            port = int(port_match.group(1))
-        except ValueError:
-            return None
-
-    host_match = re.search(r"(?:^|\s)--host(?:=|\s+)(\"[^\"]+\"|'[^']+'|\S+)", command)
-    if host_match:
-        host = host_match.group(1).strip("\"'") or "127.0.0.1"
-
-    return mode, host, port
+    from hermes_cli.dashboard_command import dashboard_runtime
+    return dashboard_runtime(command)
 
 
 def _dashboard_probe_host(host: str | None) -> str:
