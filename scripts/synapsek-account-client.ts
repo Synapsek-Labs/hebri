@@ -43,6 +43,7 @@ for await (const line of input) {
         return account.signOut()
       },
       models: () => account.managedRequest('models', undefined, command.requestId, command.expectedUserId),
+      connectors: () => account.connectorRequest(command.body, command.expectedUserId),
       completion: () => account.managedRequest('completion', command.body, command.requestId, command.expectedUserId)
     }
     if (!actions[command.action]) throw new AccountError('invalid_request')

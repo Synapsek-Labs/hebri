@@ -63,16 +63,17 @@ def start_bridge(home: Path, account_call=run_account):
             if (self.headers.get("Host") != expected_host or self.headers.get("Origin") is not None
                     or not hmac.compare_digest(auth.encode(), f"Bearer {token}".encode())):
                 return self.fail(401, "unauthenticated")
-            action = {("GET", "/v1/models"): "models", ("POST", "/v1/chat/completions"): "completion"}.get((self.command, self.path))
+            action = {("GET", "/v1/models"): "models", ("POST", "/v1/chat/completions"): "completion",
+                      ("POST", "/v1/connectors"): "connectors"}.get((self.command, self.path))
             if not action:
                 return self.fail(404, "not_found")
             if self.headers.get("x-stainless-retry-count", "0") != "0":
                 return self.fail(409, "automatic_retry_disabled")
             body = None
-            if action == "completion":
+            if action in {"completion", "connectors"}:
                 try:
                     size = int(self.headers.get("Content-Length", "0"))
-                    if not 0 < size <= 512_000 or self.headers.get_content_type() != "application/json":
+                    if not 0 < size <= (24_000 if action == "connectors" else 512_000) or self.headers.get_content_type() != "application/json":
                         return self.fail(413, "invalid_request_size")
                     self.connection.settimeout(10)
                     body = json.loads(self.rfile.read(size))
@@ -88,7 +89,7 @@ def start_bridge(home: Path, account_call=run_account):
                             raise AccountError("inference_not_enabled")
                         owner.append(view["account"]["userId"])
                 result = account_call(action, home=home, body=body, expected_user_id=owner[0], timeout=180)
-                if body and body.get("stream"):
+                if action == "completion" and body and body.get("stream"):
                     self.send_response(200)
                     self.send_header("Content-Type", "text/event-stream")
                     self.send_header("Cache-Control", "no-store")

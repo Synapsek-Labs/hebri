@@ -136,14 +136,14 @@ export const en: Translations = {
       showAllMatches: 'Show all matches',
       segmentNoMatch: (segment: string) => `No match in ${segment}, so every match is shown.`,
       freeTierNote: 'Connections stay on this computer until you sign in.',
-      signInLine: 'Sign in to Nous to use managed apps.',
+      signInLine: 'Sign in to Synapsek to use managed apps.',
       signIn: 'Sign in',
       managedUnavailable: 'Managed apps are not available for this account yet.',
       writeFailed: 'That change was not saved.',
       refreshFailed: 'The tool list was not refreshed.',
       disconnectNoAccount: 'Hebri has no account to disconnect here. Refresh the page and try again.',
       disconnectRefused:
-        'Nous could not remove this sign-in right now. Turn the app off with the switch instead, or try again later.'
+        'Synapsek could not remove this Bit’s access. Retry or revoke the app at the connected service.'
     },
 
     add: {
@@ -196,13 +196,13 @@ export const en: Translations = {
       turnOffLocal: 'Turn off the local server',
       providedByPlugin: (plugin: string) => `Provided by plugin ${plugin}`,
       openPlugins: 'Open the Plugins tab',
-      // Verbatim, by decision of the design of record.
-      nousLine: 'Nous apps follow your account, not the profile.',
-      rulesReadOnly: 'Rules cannot be changed right now.',
+      // Legacy key retained for translation compatibility; authority is Bit-scoped.
+      nousLine: 'Synapsek access is granted separately to each Bit.',
+      rulesReadOnly: 'Use Reconnect to review this Bit’s permissions in Synapsek.',
       rulesAppOff: (name: string) => `Turn ${name} on to change its tools.`,
       rulesSignIn: 'Sign in to change what Hebri may do here.',
-      orgNote: (count: number) => `Your organisation turned ${count} tools off.`,
-      orgLink: 'Open the connectors admin',
+      orgNote: (count: number) => `${count} tools are outside this Bit’s approved grant.`,
+      orgLink: 'Review access in Synapsek',
       connectEnded: 'The sign-in did not finish.',
       connectOpenAgain: 'Open the link again',
       tokensPerCall: 'tokens per call',
@@ -236,7 +236,7 @@ export const en: Translations = {
       quickReadOnly: 'Read only',
       quickNoDestructive: 'Turn off destructive',
       quickEverythingOn: 'Everything on',
-      lockedHint: 'off by your organisation',
+      lockedHint: 'outside this Bit’s approved grant',
       turnToolOn: (tool: string) => `Turn ${tool} on`,
       turnToolOff: (tool: string) => `Turn ${tool} off`,
       showDetails: (tool: string) => `Show what ${tool} does`,
@@ -245,14 +245,14 @@ export const en: Translations = {
       loading: 'Reading the tool list',
       unavailableLine: 'Tool list unavailable.',
       needsAuthTitle: (name: string) => `Sign in to ${name} to read its tools.`,
-      needsAuthBody: 'The sign-in stays on this computer. Nothing leaves it.',
+      needsAuthBody: 'Sign-in and authorized data access follow the connected service’s privacy policy.',
       retry: 'Retry',
       goneTitle: (name: string) => `${name} left the catalog.`,
       goneBody: 'Hebri cannot call it any more. The row stays until you remove it, so nothing vanishes.',
       remove: 'Remove',
       offTitle: (name: string) => `${name} is off.`,
       offBody: 'Turn it on with the switch above to read the tools it brings.',
-      signedOutTitle: 'Sign in to Nous to read the tool list.',
+      signedOutTitle: 'Sign in to Synapsek to read the tool list.',
       signedOutBody: 'Your servers on this computer are unaffected.',
       conflictTitle: 'Someone changed this rule while you were editing.',
       // Two sentences at most, and the second says the work is still here.
@@ -2461,11 +2461,17 @@ export const en: Translations = {
         missing_app: 'app missing',
         unknown: 'status unknown'
       },
+      catalogSearch: 'Search plugins',
+      catalogNotice:
+        'Bundled catalog. Third-party listings are not a Synapsek security or compatibility guarantee. Review code and requirements before installing.',
+      catalogEmpty: 'No matching plugins.',
+      catalogRuntime: 'Upstream runtime',
+      catalogReview: 'Review',
+      catalogMore: 'Show more',
       catalogTitle: 'Plugin catalog',
       catalogBrowse: 'Browse',
       catalogHide: 'Hide the catalog browser',
-      catalogHint:
-        'Hit "+ Add to this Agent" on any plugin — reviewed entries install at their pinned commit into the selected profile. Bundled agent+desktop plugins offer both halves.',
+      catalogHint: 'Review opens the install dialog for the selected Bit. Nothing is installed until you confirm.',
       alreadyInstalled: (name: string) => `${name} is already installed in this profile.`,
       catalogProvenance: (sha: string) => `Installed from the Hebri catalog${sha ? ` at pin ${sha}` : ''}.`,
       pinnedProvenance: (sha: string) =>

@@ -95,6 +95,12 @@ def test_bridge_auth_retries_owner_binding_and_tool_stream(tmp_path, monkeypatch
             assert client.get("/models", headers={**headers, "Host": "evil.invalid"}).status_code == 401
             assert client.get("/models", headers={**headers, "x-stainless-retry-count": "1"}).status_code == 409
             assert not requests
+            assert client.post("/connectors", headers={**headers, "Origin": "https://evil.invalid"}, json={}).status_code == 401
+            assert client.post("/connectors", headers=headers, json={"value": "x" * 24_001}).status_code == 413
+            assert not requests
+            assert client.post("/connectors", headers=headers, json={"command": {"action": "catalog"}}).status_code == 200
+            assert requests[-1][0] == "connectors"
+            assert requests[-1][1]["expected_user_id"] == "user-a"
             assert client.get("/models", headers=headers).json()["data"][0]["id"] == "synapsek-auto"
             response = client.post("/chat/completions", headers=headers, json={"stream": True, "stream_options": {"include_usage": True}})
             assert response.status_code == 200

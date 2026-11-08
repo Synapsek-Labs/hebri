@@ -73,6 +73,8 @@ _CLONE_ALL_DEFAULT_EXCLUDE_ROOT: frozenset[str] = frozenset({
 # that inherits jobs.json runs every job twice (two gateways, same job ids, double spend,
 # duplicate deliveries) the moment its gateway starts. The empty dir is recreated below.
 _CLONE_ALL_HISTORY_EXCLUDE_ROOT: frozenset[str] = frozenset({
+    "mcp-tokens",  # OAuth grants belong to the source Bit, never a fresh identity.
+    "synapsek-account.enc.json", "synapsek-connectors.enc.json",
     "state.db", "state.db-wal", "state.db-shm", "sessions", "backups", "state-snapshots", "checkpoints",
     "cron", "devices",  # Pairing grants and device identity never transfer to a clone.
 })
@@ -2068,7 +2070,7 @@ def _default_export_ignore(root_dir: Path):
 
 # Credential files dropped from named-profile exports. ``bot-desktop`` is the screen's runtime state:
 # its persistent Chromium profile (Cookies, Login Data — the bot's live web sessions), Xauthority, sockets.
-_EXPORT_CREDENTIAL_FILES = frozenset({"auth.json", ".env", "bot-desktop", "devices"})
+_EXPORT_CREDENTIAL_FILES = frozenset({"auth.json", ".env", "mcp-tokens", "bot-desktop", "devices", "synapsek-account.enc.json", "synapsek-connectors.enc.json"})
 
 # Text/config suffixes secret-scrubbed on export; binary DBs, images etc. are left alone.
 _EXPORT_REDACT_SUFFIXES = frozenset({

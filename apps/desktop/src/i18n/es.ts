@@ -128,7 +128,7 @@ export const es = defineLocale({
       showAllMatches: 'Mostrar todas las coincidencias',
       segmentNoMatch: (segment: string) => `No hay coincidencias en ${segment}, así que se muestran todas.`,
       freeTierNote: 'Las conexiones se quedan en este equipo hasta que inicies sesión.',
-      signInLine: 'Inicia sesión en Nous para usar las apps administradas.',
+      signInLine: 'Inicia sesión en Synapsek para usar las apps administradas.',
       signIn: 'Iniciar sesión',
       managedUnavailable: 'Las apps administradas aún no están disponibles para esta cuenta.',
       writeFailed: 'No se guardó ese cambio.',
@@ -136,7 +136,7 @@ export const es = defineLocale({
       disconnectNoAccount:
         'Hebri no tiene ninguna cuenta que desconectar aquí. Actualiza la página e inténtalo de nuevo.',
       disconnectRefused:
-        'Nous no pudo quitar este inicio de sesión ahora. Desactiva la app con el interruptor o inténtalo más tarde.'
+        'Synapsek no pudo quitar este inicio de sesión ahora. Desactiva la app con el interruptor o inténtalo más tarde.'
     },
     add: {
       action: 'Añadir el tuyo',
@@ -187,7 +187,7 @@ export const es = defineLocale({
       turnOffLocal: 'Desactivar el servidor local',
       providedByPlugin: (plugin: string) => `Proporcionado por el plugin ${plugin}`,
       openPlugins: 'Abrir la pestaña Plugins',
-      nousLine: 'Las apps de Nous siguen a tu cuenta, no al perfil.',
+      nousLine: 'El acceso de Synapsek se concede por separado a cada Bit.',
       rulesReadOnly: 'Las reglas no se pueden cambiar ahora.',
       rulesAppOff: (name: string) => `Activa ${name} para cambiar sus herramientas.`,
       rulesSignIn: 'Inicia sesión para cambiar lo que Hebri puede hacer aquí.',
@@ -242,7 +242,7 @@ export const es = defineLocale({
       remove: 'Quitar',
       offTitle: (name: string) => `${name} está desactivado.`,
       offBody: 'Actívalo con el interruptor de arriba para leer las herramientas que incluye.',
-      signedOutTitle: 'Inicia sesión en Nous para leer la lista de herramientas.',
+      signedOutTitle: 'Inicia sesión en Synapsek para leer la lista de herramientas.',
       signedOutBody: 'Tus servidores en este equipo no se ven afectados.',
       conflictTitle: 'Alguien cambió esta regla mientras la editabas.',
       conflictBody: (theyOff: number, theyOn: number) => {
@@ -2826,11 +2826,18 @@ export const es = defineLocale({
         missing_app: 'falta la app',
         unknown: 'estado desconocido'
       },
+      catalogSearch: 'Buscar plugins',
+      catalogNotice:
+        'Catálogo incluido. Los plugins de terceros no tienen garantía de seguridad ni compatibilidad de Synapsek. Revisa el código y los requisitos antes de instalar.',
+      catalogEmpty: 'No hay plugins coincidentes.',
+      catalogRuntime: 'Entorno de origen',
+      catalogReview: 'Revisar',
+      catalogMore: 'Mostrar más',
       catalogTitle: 'Catálogo de plugins',
       catalogBrowse: 'Explorar',
       catalogHide: 'Ocultar el explorador del catálogo',
       catalogHint:
-        'Pulsa "+ Añadir a este agente" en cualquier plugin: las entradas revisadas se instalan en su commit fijado en el perfil seleccionado. Los plugins agente+escritorio incluidos ofrecen ambas mitades.',
+        'Revisar abre el diálogo de instalación para el Bit seleccionado. No se instala nada hasta que confirmes.',
       alreadyInstalled: (name: string) => `${name} ya está instalado en este perfil.`,
       catalogProvenance: (sha: string) =>
         `Instalado desde el catálogo de Hebri${sha ? ` en el commit fijado ${sha}` : ''}.`,

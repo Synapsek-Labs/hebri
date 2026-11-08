@@ -2076,6 +2076,12 @@ export interface Translations {
         missing_app: string
         unknown: string
       }
+      catalogSearch: string
+      catalogNotice: string
+      catalogEmpty: string
+      catalogRuntime: string
+      catalogReview: string
+      catalogMore: string
       catalogTitle: string
       catalogBrowse: string
       catalogHide: string

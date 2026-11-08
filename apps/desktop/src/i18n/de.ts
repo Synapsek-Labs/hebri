@@ -128,7 +128,7 @@ export const de = defineLocale({
       showAllMatches: 'Alle Treffer anzeigen',
       segmentNoMatch: (segment: string) => `Kein Treffer in ${segment}, daher werden alle Treffer angezeigt.`,
       freeTierNote: 'Verbindungen bleiben auf diesem Computer, bis Sie sich anmelden.',
-      signInLine: 'Melden Sie sich bei Nous an, um verwaltete Apps zu nutzen.',
+      signInLine: 'Melden Sie sich bei Synapsek an, um verwaltete Apps zu nutzen.',
       signIn: 'Anmelden',
       managedUnavailable: 'Verwaltete Apps sind für dieses Konto noch nicht verfügbar.',
       writeFailed: 'Diese Änderung wurde nicht gespeichert.',
@@ -136,7 +136,7 @@ export const de = defineLocale({
       disconnectNoAccount:
         'Hebri hat hier kein Konto zum Trennen. Aktualisieren Sie die Seite und versuchen Sie es erneut.',
       disconnectRefused:
-        'Nous kann diese Anmeldung gerade nicht entfernen. Schalten Sie die App stattdessen mit dem Schalter aus oder versuchen Sie es später erneut.'
+        'Synapsek kann diese Anmeldung gerade nicht entfernen. Schalten Sie die App stattdessen mit dem Schalter aus oder versuchen Sie es später erneut.'
     },
     add: {
       action: 'Eigenen hinzufügen',
@@ -187,7 +187,7 @@ export const de = defineLocale({
       turnOffLocal: 'Lokalen Server ausschalten',
       providedByPlugin: (plugin: string) => `Bereitgestellt vom Plugin ${plugin}`,
       openPlugins: 'Tab „Plugins“ öffnen',
-      nousLine: 'Nous-Apps folgen Ihrem Konto, nicht dem Profil.',
+      nousLine: 'Synapsek-Zugriff wird jedem Bit separat gewährt.',
       rulesReadOnly: 'Die Regeln können gerade nicht geändert werden.',
       rulesAppOff: (name: string) => `Schalten Sie ${name} ein, um die Tools zu ändern.`,
       rulesSignIn: 'Melden Sie sich an, um festzulegen, was Hebri hier darf.',
@@ -242,7 +242,7 @@ export const de = defineLocale({
       remove: 'Entfernen',
       offTitle: (name: string) => `${name} ist aus.`,
       offBody: 'Schalten Sie ihn mit dem Schalter oben ein, um seine Tools zu laden.',
-      signedOutTitle: 'Melden Sie sich bei Nous an, um die Tool-Liste zu laden.',
+      signedOutTitle: 'Melden Sie sich bei Synapsek an, um die Tool-Liste zu laden.',
       signedOutBody: 'Ihre Server auf diesem Computer sind nicht betroffen.',
       conflictTitle: 'Jemand hat diese Regel geändert, während Sie sie bearbeitet haben.',
       conflictBody: (theyOff: number, theyOn: number) => {
@@ -2834,11 +2834,18 @@ export const de = defineLocale({
         missing_app: 'App fehlt',
         unknown: 'Status unbekannt'
       },
+      catalogSearch: 'Plugins suchen',
+      catalogNotice:
+        'Mitgelieferter Katalog. Drittanbieter-Einträge sind keine Sicherheits- oder Kompatibilitätsgarantie von Synapsek. Prüfe Code und Anforderungen vor der Installation.',
+      catalogEmpty: 'Keine passenden Plugins.',
+      catalogRuntime: 'Upstream-Laufzeit',
+      catalogReview: 'Prüfen',
+      catalogMore: 'Mehr anzeigen',
       catalogTitle: 'Plugin-Katalog',
       catalogBrowse: 'Durchsuchen',
       catalogHide: 'Katalog-Browser ausblenden',
       catalogHint:
-        'Klicken Sie bei einem Plugin auf „+ Zu diesem Agenten hinzufügen“ – geprüfte Einträge werden an ihrem gepinnten Commit in das gewählte Profil installiert. Gebündelte Agent+Desktop-Plugins bieten beide Hälften an.',
+        'Prüfen öffnet den Installationsdialog für den ausgewählten Bit. Erst deine Bestätigung installiert das Plugin.',
       alreadyInstalled: name => `${name} ist in diesem Profil bereits installiert.`,
       catalogProvenance: sha => `Aus dem Hebri-Katalog installiert${sha ? ` am Pin ${sha}` : ''}.`,
       pinnedProvenance: sha =>
