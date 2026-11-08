@@ -145,7 +145,7 @@ def cli(args):
             select_synapsek()
         if view.get("state") == "signed_in":
             account = view["account"]
-            print(f"Signed in to Synapsek as {account['email']}. Plan: {account['billing']['plan']}.")
+            print("Signed in to Synapsek.")
             if not account.get("managedInferenceEnabled"):
                 print("Model access is off for this connection. It requires sign-in consent and an eligible plan.")
             else:

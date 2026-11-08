@@ -24,6 +24,36 @@ class MemoryKeyring:
         self.keys[service, user] = value
 
 
+def test_cli_sign_in_status_does_not_print_account_details(monkeypatch, capsys):
+    from types import SimpleNamespace
+    from hermes_cli import synapsek_account
+    monkeypatch.setattr(synapsek_account, "run_account", lambda *args, **kwargs: {
+        "state": "signed_in", "account": {"email": "private-account@example.test",
+        "billing": {"plan": "private-plan"}, "managedInferenceEnabled": False}})
+    synapsek_account.cli(SimpleNamespace(synapsek_action="status"))
+    output = capsys.readouterr()
+    assert "Signed in to Synapsek" in output.out
+    assert "private-account" not in output.out + output.err
+    assert "private-plan" not in output.out + output.err
+
+
+def test_rejected_incomplete_body_cannot_hold_the_account_bridge_open(tmp_path):
+    from http.client import HTTPConnection
+    from hermes_cli.synapsek_bridge import start_bridge
+    server, _ = start_bridge(tmp_path, account_call=lambda *a, **kw: pytest.fail("Unauthenticated broker call"))
+    client = HTTPConnection("127.0.0.1", server.server_port, timeout=3)
+    try:
+        client.putrequest("POST", "/v1/connectors")
+        client.putheader("Content-Length", "512000")
+        client.endheaders(b"{")
+        response = client.getresponse()
+        assert response.status == 401
+        assert json.loads(response.read())["error"]["code"] == "unauthenticated"
+    finally:
+        client.close()
+        server.shutdown(); server.server_close()
+
+
 def test_protected_store_encryption_rotation_and_bit_isolation(tmp_path):
     from hermes_cli.synapsek_store import AccountStore
     keyring = MemoryKeyring()
@@ -95,7 +125,10 @@ def test_bridge_auth_retries_owner_binding_and_tool_stream(tmp_path, monkeypatch
             assert client.get("/models", headers={**headers, "Host": "evil.invalid"}).status_code == 401
             assert client.get("/models", headers={**headers, "x-stainless-retry-count": "1"}).status_code == 409
             assert not requests
-            assert client.post("/connectors", headers={**headers, "Origin": "https://evil.invalid"}, json={}).status_code == 401
+            for _ in range(10):
+                denied = client.post("/connectors", headers={**headers, "Origin": "https://evil.invalid"}, json={})
+                assert denied.status_code == 401
+                assert int(denied.headers["Content-Length"]) == len(denied.content)
             assert client.post("/connectors", headers=headers, json={"value": "x" * 24_001}).status_code == 413
             assert not requests
             assert client.post("/connectors", headers=headers, json={"command": {"action": "catalog"}}).status_code == 200

@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 import secrets
 import threading
+import time
 
 from hermes_cli.synapsek_account import AccountError, run_account
 from hermes_cli.synapsek_store import AccountStore
@@ -42,13 +43,34 @@ def start_bridge(home: Path, account_call=run_account):
             pass
 
         def reply(self, status, body):
+            payload = json.dumps(body).encode()
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(payload)))
             self.end_headers()
-            self.wfile.write(json.dumps(body).encode())
+            self.wfile.write(payload)
 
         def fail(self, status, code):
+            # Closing with unread POST bytes can reset the socket on Windows,
+            # hiding the rejection from the caller. Drain only a bounded body,
+            # without parsing it or invoking the account broker.
+            if self.command == "POST" and not getattr(self, "_body_consumed", False):
+                try:
+                    size = int(self.headers.get("Content-Length", "0"))
+                    if 0 < size <= 512_000 and not self.headers.get("Transfer-Encoding"):
+                        deadline = time.monotonic() + 1
+                        while size > 0:
+                            remaining = deadline - time.monotonic()
+                            if remaining <= 0:
+                                break
+                            self.connection.settimeout(remaining)
+                            chunk = self.rfile.read1(min(size, 16_384))
+                            if not chunk:
+                                break
+                            size -= len(chunk)
+                except (ValueError, OSError):
+                    pass  # Still reject; never wait indefinitely for an untrusted body.
             self.reply(status, {"error": {"message": code, "code": code, "type": "synapsek_error"}})
 
         def do_GET(self):
@@ -76,6 +98,7 @@ def start_bridge(home: Path, account_call=run_account):
                     if not 0 < size <= (24_000 if action == "connectors" else 512_000) or self.headers.get_content_type() != "application/json":
                         return self.fail(413, "invalid_request_size")
                     self.connection.settimeout(10)
+                    self._body_consumed = True
                     body = json.loads(self.rfile.read(size))
                     if not isinstance(body, dict):
                         return self.fail(400, "invalid_json")

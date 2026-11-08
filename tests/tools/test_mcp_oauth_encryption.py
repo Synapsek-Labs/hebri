@@ -55,3 +55,21 @@ def test_locked_os_store_preserves_legacy_credentials_without_plaintext_fallback
     with pytest.raises(RuntimeError):
         write_oauth_json(path, {"access_token": "replacement"})
     assert path.read_text() == original
+
+
+def test_client_rotation_invalidates_tokens_without_logging_stored_identity(tmp_path, monkeypatch, caplog):
+    from tools.mcp_oauth import HermesTokenStorage, _invalidate_tokens_on_client_change
+    from tools.mcp_oauth_storage import write_oauth_json
+    monkeypatch.setattr("hermes_cli.synapsek_store.native_keyring", lambda: keys)
+    keys = MemoryKeyring()
+    store = HermesTokenStorage("service", hermes_home=tmp_path)
+    write_oauth_json(store._client_info_path(), {"client_id": "private-old-client", "client_secret": "private-client-secret"})
+    write_oauth_json(store._tokens_path(), {"access_token": "private-access-token"})
+    store._meta_path().write_text("{}")
+    _invalidate_tokens_on_client_change(store, "private-old-client", "private-client-secret")
+    assert store._tokens_path().exists()
+    _invalidate_tokens_on_client_change(store, "private-new-client", "replacement-secret")
+    assert not store._tokens_path().exists() and not store._meta_path().exists()
+    assert "Re-authorize" in caplog.text
+    for value in ("private-old-client", "private-new-client", "private-client-secret", "private-access-token", "replacement-secret"):
+        assert value not in caplog.text

@@ -140,10 +140,17 @@ def test_loopback_transport_ignores_proxy_settings_and_rebind_never_reuses_old_g
     thread = Thread(target=server.serve_forever, daemon=True); thread.start()
     monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1"); monkeypatch.setenv("NO_PROXY", "")
     monkeypatch.setattr(synapsek, "available", lambda: True)
+    sent_urls = []
+    class RecordingSession(synapsek.requests.Session):
+        def post(self, url, **kwargs):
+            sent_urls.append(url)
+            return super().post(url, **kwargs)
+    monkeypatch.setattr(synapsek.requests, "Session", RecordingSession)
     monkeypatch.setattr("hermes_cli.auth.resolve_api_key_provider_credentials", lambda _: {
-        "api_key": "local-test-capability", "base_url": f"http://127.0.0.1:{server.server_port}/v1"})
+        "api_key": "local-test-capability", "base_url": f"http://127.0.0.1:0{server.server_port}/v1"})
     try:
         assert synapsek._account_call({"command": {"action": "catalog"}}) == {"items": []}
+        assert sent_urls == [f"http://127.0.0.1:{server.server_port}/v1/connectors"]
     finally:
         server.shutdown(); server.server_close(); thread.join()
 

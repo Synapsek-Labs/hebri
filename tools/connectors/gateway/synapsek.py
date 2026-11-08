@@ -46,9 +46,12 @@ def _account_call(body):
             or parsed.username or parsed.password or parsed.path != "/v1" or parsed.query or parsed.fragment
             or not credentials.get("api_key")):
         raise GatewayAuthError("Sign in to Synapsek in Hebri or run hebri auth synapsek login.", code="NO_TOKEN", status=401)
+    # Rebuild the destination from the validated numeric port. The credential
+    # record is not a URL source; its capability belongs only in the header.
+    endpoint = f"http://127.0.0.1:{int(parsed.port)}/v1/connectors"
     with requests.Session() as client:
         client.trust_env = False  # Never send a loopback capability through an ambient proxy.
-        with client.post(f"{base}/connectors", json=body,
+        with client.post(endpoint, json=body,
                          headers={"Authorization": f"Bearer {credentials['api_key']}"},
                          timeout=(min(5, _remaining()), min(25, _remaining())), allow_redirects=False, stream=True) as response:
             chunks, size = [], 0
