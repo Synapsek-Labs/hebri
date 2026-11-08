@@ -12,12 +12,6 @@ from pathlib import Path
 
 from hermes_cli._startup_fast import is_desktop_ssh_backend_argv
 
-# Cmdline substrings identifying the long-lived server (``serve`` = the headless name Desktop
-# spawns; reaped on update for the same reason).
-_DASHBOARD_PATTERNS = tuple(
-    f"{launcher} {cmd}"
-    for cmd in ("dashboard", "serve")
-    for launcher in ("hebri", "hermes", "hermes_cli.hebri", "hermes_cli.main", "hermes_cli/main.py"))
 _PS_RUN_KWARGS = dict(capture_output=True, text=True, encoding="utf-8", errors="replace")
 
 
@@ -86,9 +80,10 @@ def _scan_dashboard_processes(*, exclude_pids: set[int] | None = None) -> list[t
     process; ``_kill_stale_dashboard_processes`` reads it and passes it here. (#37532)
     """
     skip = {os.getpid(), *(exclude_pids or ())}
+    from hermes_cli.dashboard_command import dashboard_runtime
     try:
         found = [(pid, cmd) for pid, cmd in _iter_process_table()
-                 if pid not in skip and any(p in cmd for p in _DASHBOARD_PATTERNS)]
+                 if pid not in skip and dashboard_runtime(cmd) is not None]
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
         return []
     # Spawn-ledger augmentation: substring patterns miss profiled launches (`hebri --profile p

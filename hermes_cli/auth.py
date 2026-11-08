@@ -1921,10 +1921,14 @@ def get_api_key_provider_status(provider_id: str) -> Dict[str, Any]:
     if provider_id == "actual":
         base_url = normalize_actual_base_url(base_url)
         actual_local_noauth = not api_key and is_actual_local_base_url(base_url)
-    configured = bool(api_key) or actual_local_noauth
+    standalone_account = False
+    if provider_id == "synapsek" and not api_key:
+        from hermes_cli.synapsek_store import AccountStore
+        standalone_account = AccountStore(get_hermes_home()).file.is_file()
+    configured = bool(api_key) or actual_local_noauth or standalone_account
     return {  # logged_in mirrors configured for compat with the OAuth status shape
         "configured": configured, "provider": provider_id, "name": pconfig.name,
-        "key_source": key_source or ("local-offline" if actual_local_noauth else ""),
+        "key_source": key_source or ("os-keychain" if standalone_account else "local-offline" if actual_local_noauth else ""),
         "base_url": base_url, "logged_in": configured}
 
 
@@ -2150,6 +2154,12 @@ def resolve_api_key_provider_credentials(provider_id: str) -> Dict[str, Any]:
     if not api_key and provider_id == "lmstudio":
         api_key = LMSTUDIO_NOAUTH_PLACEHOLDER
         key_source = key_source or "default"
+
+    if not api_key and provider_id == "synapsek":
+        from hermes_cli.synapsek_bridge import standalone_credentials
+        credentials = standalone_credentials(get_hermes_home())
+        if credentials:
+            return credentials
 
     env_url = _provider_env_base_url(pconfig)
     resolve_url = _API_KEY_BASE_URL_RESOLVERS.get(provider_id, _default_api_key_base_url)

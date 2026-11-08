@@ -90,11 +90,18 @@ export const itSkills = {
         missing_app: 'app mancante',
         unknown: 'stato sconosciuto'
       },
+      catalogSearch: 'Cerca plugin',
+      catalogNotice:
+        'Catalogo incluso. Le estensioni di terze parti non sono una garanzia di sicurezza o compatibilità di Synapsek. Verifica codice e requisiti prima di installare.',
+      catalogEmpty: 'Nessun plugin corrispondente.',
+      catalogRuntime: 'Runtime originale',
+      catalogReview: 'Esamina',
+      catalogMore: 'Mostra altri',
       catalogTitle: 'Catalogo dei plugin',
       catalogBrowse: 'Sfoglia',
       catalogHide: 'Nascondi il catalogo',
       catalogHint:
-        'Premi «+ Aggiungi a questo agente» su un plugin: le voci verificate vengono installate nel profilo selezionato alla versione fissata. I plugin che includono agente e desktop offrono entrambe le parti.',
+        'Esamina apre la finestra di installazione per il Bit selezionato. Nulla viene installato senza conferma.',
       alreadyInstalled: (name: string) => `${name} è già installato in questo profilo.`,
       catalogProvenance: (sha: string) => `Installato dal catalogo Hebri${sha ? ` alla versione fissata ${sha}` : ''}.`,
       pinnedProvenance: (sha: string) =>

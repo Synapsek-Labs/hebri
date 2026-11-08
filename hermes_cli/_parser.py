@@ -74,7 +74,7 @@ def _inherited_flag(parser, *args, **kwargs):
 
 _EPILOGUE = """
 Examples:
-    hermes                        Start interactive chat
+    hebri                         Start interactive chat
     hebri chat -q "Hello"        Single query mode
     hebri --tui                  Launch the modern TUI (or set display.interface: tui)
     hebri --cli                  Force the classic REPL (overrides display.interface: tui)
