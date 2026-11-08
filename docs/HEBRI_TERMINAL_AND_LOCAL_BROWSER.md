@@ -65,10 +65,14 @@ covered the native keychain, terminal query, ConPTY browser chat, stored-session
 resume after restart, account isolation, model selection and bridge security.
 The shared account controller's existing protocol tests also pass.
 
-The production consent test reached Synapsek but returned
-`authorization_forbidden` for the signed-in website account. The existing
-approved-account restriction remains intact. A native-enabled account is needed
-to finish live login, refresh, browser/terminal sharing and logout verification.
+Production login succeeded with a native-enabled account after browser MFA
+verification. A fresh terminal process restored the OS-encrypted session, and
+the local browser displayed the same account and plan. The optional shared-credit
+and collaboration permissions were left unchecked for this account-only test.
+Model access was correctly denied without that consent. Browser sign-out completed
+server revocation, cleared the encrypted session file, and a fresh terminal status
+command confirmed the signed-out state.
+The existing approved-account restriction remains intact.
 Paid inference has not been exercised by these local tests. macOS Keychain,
 Linux Secret Service, Nix packaging and cross-platform release CI still require
 qualification before publication.

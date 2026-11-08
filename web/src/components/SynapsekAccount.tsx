@@ -90,7 +90,7 @@ function AccountPanel({ profile, onChanged }: AccountPanelProps) {
       <p className="text-sm text-muted-foreground">Use your Synapsek plan in this Bit, in the terminal or this local browser. Desktop is not required.</p>
       {view?.state === "signed_in" && <>
         <p>{view.account?.email} · {view.account?.billing.plan}</p>
-        <p className="text-sm">{view.account?.managedInferenceEnabled ? "Synapsek is connected. Start a new chat to use this Bit’s selected model." : "Signed in. Model access is not enabled for this account; check your plan."}</p>
+        <p className="text-sm">{view.account?.managedInferenceEnabled ? "Synapsek is connected. Start a new chat to use this Bit’s selected model." : "Signed in. Model access is off for this connection. It requires sign-in consent and an eligible plan."}</p>
       </>}
       {pending && <p role="status">Complete sign-in and account consent in your browser. A second consent link may appear here.</p>}
       {authorize && pending && <a href={authorize} target="_blank" rel="noopener noreferrer" className="underline">Continue Synapsek sign-in</a>}

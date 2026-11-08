@@ -147,7 +147,7 @@ def cli(args):
             account = view["account"]
             print(f"Signed in to Synapsek as {account['email']}. Plan: {account['billing']['plan']}.")
             if not account.get("managedInferenceEnabled"):
-                print("Model access is not enabled for this account. Check https://synapseklabs.org/billing.")
+                print("Model access is off for this connection. It requires sign-in consent and an eligible plan.")
             else:
                 print("Ready: run hebri --tui or hebri dashboard.")
         else:
