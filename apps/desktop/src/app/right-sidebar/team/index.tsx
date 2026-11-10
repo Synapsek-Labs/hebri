@@ -55,7 +55,7 @@ import { RightSidebarSectionHeader } from '../index'
 import { teamHelp } from './help-copy'
 import { HostedTeamPane } from './hosted'
 import { hostedCopy } from './hosted-copy'
-import { shareCopy } from './share-copy'
+import { selfHostedCopy } from './self-hosted-copy'
 import { ShareRoom } from './share-room'
 
 const POLL_MS = 3000
@@ -197,6 +197,7 @@ function LocalTeamPane({ baseUrl }: { baseUrl: string }) {
   const { t: languageText } = useDesktopLanguage()
 
   const { locale } = useI18n()
+  const setup = selfHostedCopy[locale]
   const help = teamHelp[locale]
   const [name, setName] = useState<string>(() => readLocal(NAME_KEY) ?? '')
   const [status, setStatus] = useState<string>(() => readLocal(STATUS_KEY) ?? '')
@@ -527,9 +528,15 @@ function LocalTeamPane({ baseUrl }: { baseUrl: string }) {
       aria-label={languageText.additional.ui.teamChat}
       className="flex h-full w-full min-w-0 flex-col gap-3 overflow-hidden p-3 text-xs"
     >
-      <details className="shrink-0 text-muted-foreground">
-        <summary className="cursor-pointer font-medium text-foreground">{shareCopy[locale].title}</summary>
-        <p className="mt-2">{shareCopy[locale].help}</p>
+      <p className="shrink-0 text-muted-foreground">{setup.intro}</p>
+      <details className="max-h-64 shrink-0 overflow-y-auto text-muted-foreground">
+        <summary className="cursor-pointer font-medium text-foreground">{setup.title}</summary>
+        <ol className="mt-2 list-decimal space-y-2 ps-5">
+          <li>{setup.host}</li>
+          <li>{setup.room}</li>
+          <li>{setup.invite}</li>
+        </ol>
+        <p className="mt-2">{setup.online}</p>
         <p className="mt-2">{help.join}</p>
         <p className="mt-2">{help.privacy}</p>
       </details>
@@ -682,7 +689,7 @@ function LocalTeamPane({ baseUrl }: { baseUrl: string }) {
                     onClick={() => void shareRoom(r)}
                     type="button"
                   >
-                    ⧉
+                    {setup.share}
                   </button>
                 </Tip>
               </span>

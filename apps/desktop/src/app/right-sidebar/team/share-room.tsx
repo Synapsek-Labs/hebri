@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useI18n } from '@/i18n'
 
+import { selfHostedCopy } from './self-hosted-copy'
 import { shareCopy } from './share-copy'
 
 // Never advertise a loopback address, credentials or a ticket in a share message.
@@ -73,6 +74,7 @@ export function ShareRoom({ baseUrl, code, onClose }: ShareRoomProps) {
         <Input readOnly value={code} />
       </label>
       <p className="text-sm text-muted-foreground">{host ? copy.help : copy.missing}</p>
+      <p className="text-sm text-muted-foreground">{selfHostedCopy[locale].rotate}</p>
       <div className="flex flex-wrap gap-2">
         <Button disabled={!host} onClick={() => void copyInvite()} size="sm">
           {copied ? copy.copied : copy.copy}
