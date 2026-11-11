@@ -322,11 +322,16 @@ def get_profile_dir(name: str) -> Path:
         raise _invalid_profile_name_error(canon)
     # Filesystem authority stays with the configured profiles root. In addition
     # to the profile-ID grammar, consume exactly one basename at this boundary.
-    # This also makes the confinement explicit to static data-flow analysis.
     component = os.path.basename(canon)
     if component != canon or component in {'.', '..'}:
         raise _invalid_profile_name_error(canon)
-    return _get_profiles_root() / component
+    root = os.path.abspath(_get_profiles_root())
+    candidate = os.path.abspath(os.path.join(root, component))
+    # Normalize before checking a separator-terminated prefix: a sibling with
+    # a shared string prefix must not pass as a child of the profiles root.
+    if not candidate.startswith(root + os.sep):
+        raise _invalid_profile_name_error(canon)
+    return Path(candidate)
 
 
 def profile_exists(name: str) -> bool:
