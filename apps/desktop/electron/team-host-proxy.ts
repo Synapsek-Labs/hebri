@@ -1,5 +1,60 @@
 import http from 'node:http'
 
+function relayToLocalBackend(
+  port: number,
+  method: string,
+  path: string,
+  headers: Record<string, string>,
+  body?: Buffer
+) {
+  return new Promise<{ status: number; body: Buffer }>((resolve, reject) => {
+    // Request data may select an allowlisted PATH, never the connection origin.
+    // Do not resolve a caller-controlled URL against the backend URL here.
+    const request = http.request(
+      {
+        protocol: 'http:',
+        hostname: '127.0.0.1',
+        port,
+        path,
+        method,
+        headers,
+        signal: AbortSignal.timeout(10_000)
+      },
+      async response => {
+        try {
+          const status = response.statusCode || 502
+
+          if (status >= 300 && status < 400) {
+            response.destroy()
+            throw new Error('redirect_not_allowed')
+          }
+
+          const output: Buffer[] = []
+          let total = 0
+
+          for await (const chunk of response) {
+            total += chunk.length
+
+            if (total > 4_194_304) {
+              response.destroy()
+              throw new Error('response_too_large')
+            }
+
+            output.push(Buffer.from(chunk))
+          }
+
+          resolve({ status, body: Buffer.concat(output) })
+        } catch (error) {
+          reject(error)
+        }
+      }
+    )
+
+    request.on('error', reject)
+    request.end(body)
+  })
+}
+
 /** A room relay boundary, never a tunnel to the desktop administration API. */
 export function allowedTeamRelay(method: string, raw: string): boolean {
   if (!raw.startsWith('/') || /[%\\#]/.test(raw)) {
@@ -110,38 +165,15 @@ export async function startTeamHostProxy(base: string) {
         headers.Authorization = req.headers.authorization
       }
 
-      const upstream = await fetch(new URL(req.url!, backend), {
-        method: req.method,
+      const upstream = await relayToLocalBackend(
+        Number(backend.port || 80),
+        req.method!,
+        req.url!,
         headers,
-        redirect: 'error',
-        signal: AbortSignal.timeout(10_000),
-        body: chunks.length ? Buffer.concat(chunks) : undefined
-      })
+        chunks.length ? Buffer.concat(chunks) : undefined
+      )
 
-      const reader = upstream.body?.getReader()
-      const output: Uint8Array[] = []
-      let total = 0
-
-      if (reader) {
-        for (;;) {
-          const item = await reader.read()
-
-          if (item.done) {
-            break
-          }
-
-          total += item.value.length
-
-          if (total > 4_194_304) {
-            await reader.cancel()
-            throw new Error('response_too_large')
-          }
-
-          output.push(item.value)
-        }
-      }
-
-      res.writeHead(upstream.status).end(Buffer.concat(output))
+      res.writeHead(upstream.status).end(upstream.body)
     } catch {
       if (!res.headersSent) {
         res.writeHead(502)

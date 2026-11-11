@@ -83,6 +83,62 @@ it('does not follow upstream redirects or accept non-loopback backends', async (
   await expect(startTeamHostProxy('http://192.168.1.2:9119')).rejects.toThrow('local_backend_required')
 })
 
+it('keeps the upstream origin fixed for raw request targets and forged destination headers', async () => {
+  let otherRequests = 0
+
+  const other = await backend((_req, res) => {
+    otherRequests++
+    res.end('unexpected')
+  })
+
+  const received: http.IncomingHttpHeaders[] = []
+
+  const upstream = await backend((req, res) => {
+    received.push(req.headers)
+    res.end('{}')
+  })
+
+  const proxy = await startTeamHostProxy(upstream)
+  close.push(proxy.close)
+
+  const rawGet = (path: string) =>
+    new Promise<number | undefined>((resolve, reject) => {
+      const request = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: new URL(proxy.target).port,
+          path,
+          headers: { Host: new URL(other).host, Forwarded: `host=${new URL(other).host}` }
+        },
+        response => {
+          response.resume()
+          response.on('end', () => resolve(response.statusCode))
+        }
+      )
+
+      request.on('error', reject)
+      request.end()
+    })
+
+  // Node's raw path option preserves targets that fetch would normalize.
+  expect(await rawGet(`${other}/api/team/relay/general/messages`)).toBe(404)
+  expect(await rawGet(`//${new URL(other).host}/api/team/relay/general/messages`)).toBe(404)
+  expect(await rawGet('/api/team/relay/general/messages')).toBe(200)
+  expect(received).toHaveLength(1)
+  expect(received[0].host).toBe(new URL(upstream).host)
+  expect(received[0].forwarded).toBeUndefined()
+  expect(otherRequests).toBe(0)
+})
+
+it('rejects oversized upstream responses', async () => {
+  const upstream = await backend((_req, res) => res.end(Buffer.alloc(4_194_305)))
+  const proxy = await startTeamHostProxy(upstream)
+  close.push(proxy.close)
+  const response = await fetch(`${proxy.target}/api/team/relay/general/messages`)
+  expect(response.status).toBe(502)
+  expect(await response.json()).toEqual({ error: 'host_unavailable' })
+})
+
 it('refuses occupied Tailscale routes and never treats public Funnel as private hosting', () => {
   const host = 'computer.example.ts.net'
   const target = 'http://127.0.0.1:12345'
