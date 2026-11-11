@@ -686,8 +686,9 @@ def _seed_model_config(profile_dir: Path) -> None:
         from hermes_cli.config import atomic_config_write, read_user_config_raw
         source = get_hermes_home() / "config.yaml"
         seed = launch_model_seed(read_user_config_raw(source)) if source.is_file() else {}
-        if seed:
-            atomic_config_write(config_path, seed)
+        # This path is only for a fresh Bit; clones and existing configs retain their choice.
+        seed['memory'] = {'provider': 'keelindex'}
+        atomic_config_write(config_path, seed)
 
 
 def _check_gateway_running(profile_dir: Path) -> bool:
@@ -1191,6 +1192,8 @@ def _clone_all_into(source_dir: Path, profile_dir: Path, canon: str) -> None:
     if materialized:
         logger.info("profile %s: materialized symlinked %s so the clone never writes through to %s",
                     canon, materialized, source_dir)
+    from hermes_cli.profile_memory_config import snapshot_cloned_keel
+    snapshot_cloned_keel(source_dir, profile_dir)
     # Excluded history dirs (sessions/, cron/) must still exist as empty dirs so the clone runs.
     for subdir in _PROFILE_DIRS:
         (profile_dir / subdir).mkdir(parents=True, exist_ok=True)
