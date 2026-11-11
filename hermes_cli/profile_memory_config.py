@@ -69,11 +69,11 @@ def snapshot_cloned_keel(source_dir: Path, profile_dir: Path) -> None:
     from hermes_cli.backup import _safe_copy_db
 
     source = source_dir / 'keelindex/entries.sqlite3'
-    if not source.is_file():
-        return
     destination = profile_dir / 'keelindex/entries.sqlite3'
     source.resolve().relative_to(source_dir.resolve())
     destination.resolve().relative_to(profile_dir.resolve())
+    if not source.is_file():
+        return
     destination.parent.mkdir(parents=True, exist_ok=True)
     # Only used on an unpublished clone, never an installed/live profile.
     with tempfile.TemporaryDirectory(prefix='.keel-snapshot-', dir=profile_dir) as staging:

@@ -320,7 +320,13 @@ def get_profile_dir(name: str) -> Path:
     # profiles/hermes may still exist and must keep resolving.
     if not _PROFILE_ID_RE.match(canon):
         raise _invalid_profile_name_error(canon)
-    return _get_profiles_root() / canon
+    # Filesystem authority stays with the configured profiles root. In addition
+    # to the profile-ID grammar, consume exactly one basename at this boundary.
+    # This also makes the confinement explicit to static data-flow analysis.
+    component = os.path.basename(canon)
+    if component != canon or component in {'.', '..'}:
+        raise _invalid_profile_name_error(canon)
+    return _get_profiles_root() / component
 
 
 def profile_exists(name: str) -> bool:

@@ -145,3 +145,26 @@ def test_fresh_bit_default_and_clone_preserves_provider(tmp_path, monkeypatch):
         assert yaml.safe_load((source / 'config.yaml').read_text(encoding='utf-8'))['memory']['provider'] == ''
     finally:
         reset_hermes_home_override(token)
+
+
+@pytest.mark.parametrize('name', ['../outside', 'x/../../outside', '..\\outside', '/outside', 'C:\\outside'])
+def test_profile_path_cannot_escape_configured_root(name):
+    from hermes_cli.profiles import get_profile_dir
+    with pytest.raises(ValueError):
+        get_profile_dir(name)
+
+
+def test_clone_refuses_keel_symlink_outside_profile(tmp_path):
+    from hermes_cli.profile_memory_config import snapshot_cloned_keel
+    source, clone, outside = [tmp_path / n for n in ('source', 'clone', 'outside')]
+    for folder in (source, clone, outside):
+        folder.mkdir()
+    (outside / 'entries.sqlite3').write_bytes(b'outside profile; must remain untouched')
+    try:
+        (source / 'keelindex').symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip('Creating a symlink requires OS permission on this host')
+    with pytest.raises(ValueError):
+        snapshot_cloned_keel(source, clone)
+    assert not (clone / 'keelindex').exists()
+    assert (outside / 'entries.sqlite3').read_bytes() == b'outside profile; must remain untouched'
