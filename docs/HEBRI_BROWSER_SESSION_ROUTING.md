@@ -31,9 +31,11 @@ Two additional failures were reproduced during qualification:
 
 - The focused runtime session determines foreground browser access and the
   profile used by **Let Hebri manage the page**.
-- Browser and other companion-pane keyboard focus retain the last visible chat
+- Browser and sidebar keyboard focus retain the last visible chat
   context. Switching chats changes that context; closing the chat does not leave
   a dangling session reference.
+- Clearing pane focus or selecting another application page retains normal
+  sidebar navigation behavior; it does not revive the last focused chat.
 - Opening a preview compares the source route against the focused chat's route.
   Profile names alone never authorize a different remote connection.
 - Reads and actions use the same foreground decision. Asynchronous work still
@@ -97,3 +99,19 @@ this is an execution-path test, not an evaluation of every model's planning.
 
 These checks do not claim that every external website, login flow or standalone
 browser backend has been qualified.
+
+## PR CI follow-up
+
+The first full renderer CI run found two failures after 8,587 passing tests.
+The no-page history test still expected the retired `open_preview` tool name;
+its assertion now checks failure and the current `desktop_preview` guidance.
+The sidebar integration test exposed an overbroad focus fallback: clearing
+focus retained the last chat instead of restoring route navigation. The fallback
+now applies only to browser panes and the sidebar, preserving the existing
+navigation assertion. Both failures were reproduced locally before correction.
+
+Follow-up validation: all 1,034 renderer test files passed locally (8,588 tests
+passed, one platform-conditional skip), including the unchanged sidebar
+integration assertions. Renderer type-checking and focused lint passed. The
+rebuilt Electron/Python/Chromium browser sequence passed again with manual
+approval mode enabled.

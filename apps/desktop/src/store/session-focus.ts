@@ -4,7 +4,7 @@ import { findGroup, findGroupOfPane } from '@/components/pane-shell/tree/model'
 import { $activeTreeGroup, $layoutTree } from '@/components/pane-shell/tree/store'
 import { $workspaceMode } from '@/components/pane-shell/workspace-scope'
 
-// Companion panes own keyboard focus, but interacting with the browser or
+// Browser panes own keyboard focus, but interacting with the browser or
 // sidebar must not replace its chat with the route's (possibly hidden) primary.
 const $lastContentGroup = atom<null | string>(null)
 
@@ -24,7 +24,7 @@ export const $focusedTreePaneId = computed(
   (groupId, tree, workspaceMode, lastContentGroup) => {
     let active = groupId && tree ? findGroup(tree, groupId)?.active : undefined
 
-    if (!isChatPane(active) && tree) {
+    if ((active === 'sessions' || active === 'preview' || active?.startsWith('preview-tile:')) && tree) {
       const content = lastContentGroup ? findGroup(tree, lastContentGroup) : null
       const chat = isChatPane(content?.active) ? content : findGroupOfPane(tree, 'workspace')
       active = isChatPane(chat?.active) ? chat?.active : active
