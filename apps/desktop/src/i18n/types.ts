@@ -9,6 +9,7 @@ import type { ErrorCodeKey } from '@/lib/error-surface'
 import type { TipId } from '@/lib/tips/catalog'
 
 import type { additionalEn } from './additional-en'
+import type { GettingStartedCopy } from './getting-started-copy'
 
 export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar' | 'ru' | 'fr' | 'de' | 'es' | 'it'
 
@@ -61,6 +62,7 @@ interface AuxTaskCopy {
 }
 
 export interface Translations {
+  gettingStarted: GettingStartedCopy
   browserAccess: { useInChat: string; title: string; body: string; allow: string; stop: string }
   additional: typeof additionalEn
   intro: {

@@ -1,9 +1,11 @@
 import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 
 import { additionalEn } from './additional-en'
+import { gettingStartedCopy } from './getting-started-copy'
 import type { Translations } from './types'
 
 export const en: Translations = {
+  gettingStarted: gettingStartedCopy.en,
   additional: additionalEn,
   // English editorial copy stays in the shipped JSONL; other locales override it.
   intro: { stock: {}, custom: () => [] },

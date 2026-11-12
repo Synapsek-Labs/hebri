@@ -1,6 +1,8 @@
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 
 export const ar = defineLocale({
+  gettingStarted: gettingStartedCopy['ar'],
   browserAccess: {
     useInChat: 'السماح لهذا الوكيل باستخدام علامة التبويب هذه',
     title: 'السماح بالوصول إلى المتصفح في الخلفية؟',

@@ -1,9 +1,11 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introJa } from './intro-ja'
 
 export const ja = defineLocale({
+  gettingStarted: gettingStartedCopy['ja'],
   browserAccess: {
     useInChat: 'このエージェントにこのタブの使用を許可',
     title: 'バックグラウンドでのブラウザー操作を許可しますか？',

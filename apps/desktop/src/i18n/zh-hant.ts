@@ -1,9 +1,11 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introZhHant } from './intro-zh-hant'
 
 export const zhHant = defineLocale({
+  gettingStarted: gettingStartedCopy['zh-hant'],
   browserAccess: {
     useInChat: '允許此代理程式使用此分頁',
     title: '允許背景瀏覽器存取？',

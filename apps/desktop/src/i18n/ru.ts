@@ -1,6 +1,7 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 
 // RU_PLURAL: (count, one, few, many) — русские формы сущ. падежа
 // RU_NOUN: (count, one, few, many) — формы род. множественного
@@ -24,6 +25,7 @@ const RU_NOUN = (count: number | string, one: string, few: string, many: string)
 }
 
 export const ru = defineLocale({
+  gettingStarted: gettingStartedCopy['ru'],
   browserAccess: {
     useInChat: 'Разрешить этому агенту использовать вкладку',
     title: 'Разрешить доступ к браузеру в фоне?',
