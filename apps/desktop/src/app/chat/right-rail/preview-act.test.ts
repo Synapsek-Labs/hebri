@@ -44,7 +44,7 @@ describe('actOnActivePreview (drive_preview tool)', () => {
     const result = await actOnActivePreview({ kind: 'elements' })
 
     expect(result.success).toBe(false)
-    expect(result.error).toContain('open_preview')
+    expect(result.error).toContain('desktop_preview')
   })
 
   it('re-inventories after a mutating action so the next ref is current', async () => {
