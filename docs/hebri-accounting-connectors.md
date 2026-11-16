@@ -36,3 +36,14 @@ Automated validation: the canonical `scripts/run_tests.sh` runner passed
 This includes actual ConnectorClient schema parsing, page forwarding, legacy
 schema fallback and the existing profile-isolation checks. Provider responses are
 mocked; live acceptance and native keychain qualification remain outstanding.
+
+CI also found two existing lockfile advisories while preparing this trial:
+[OpenTelemetry trace-context denial of service](https://github.com/advisories/GHSA-mf5v-w3w3-f6cg)
+and [Tornado redirect parsing](https://github.com/advisories/GHSA-5cjw-f85j-cv6r).
+The security follow-up raises the OpenTelemetry family and lazy OTLP installer to
+1.45.2 and the Tornado floor to 6.6.1, then regenerates the lockfile. The unchanged
+audit checks all 270 locked/build dependencies with zero advisory findings.
+No audit exception or security check was removed.
+The patched lock was installed into a separate disposable environment with the
+dev and OTLP extras. Connector tests plus the two CI context-engine/profile files
+passed through the canonical runner: 13 tests, 4 files, retries disabled.
