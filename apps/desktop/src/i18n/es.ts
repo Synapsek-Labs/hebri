@@ -1,9 +1,11 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introEs } from './intro-es'
 
 export const es = defineLocale({
+  gettingStarted: gettingStartedCopy['es'],
   intro: introEs,
   browserAccess: {
     useInChat: 'Permitir que este agente use esta pestaña',

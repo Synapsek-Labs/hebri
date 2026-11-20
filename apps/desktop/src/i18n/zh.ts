@@ -1,9 +1,11 @@
 import { defineFieldCopy } from '@/app/settings/field-copy'
 
 import { defineLocale } from './define-locale'
+import { gettingStartedCopy } from './getting-started-copy'
 import { introZh } from './intro-zh'
 
 export const zh = defineLocale({
+  gettingStarted: gettingStartedCopy['zh'],
   browserAccess: {
     useInChat: '允许此智能体使用此标签页',
     title: '允许后台浏览器访问？',
