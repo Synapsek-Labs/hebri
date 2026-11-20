@@ -54,6 +54,8 @@ jobs:
         run: |
           python3 -m venv .venv
           .venv/bin/python -m pip install -e . pytest==9.1.1
+      - name: Test managed sign-in with existing model configurations
+        run: bash scripts/run_tests.sh tests/hermes_cli/test_synapsek_standalone.py -k managed_login --tb=short
       - name: Test profile isolation and real context-engine lifecycle
         run: bash scripts/run_tests.sh tests/agent/test_context_floor_profiles.py tests/plugins/test_local_context_engines.py --tb=short
 
