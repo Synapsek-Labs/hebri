@@ -4,6 +4,9 @@ import json
 from tools.connectors.dispatch import dispatch_connector_call
 from tools.connectors.gateway import synapsek
 from tools.connectors.gateway.client import ConnectorClient
+from tools.connectors.gateway.bridge import run_remote
+from tools.connectors.gateway.errors import GatewayUnavailable
+from tools.connectors.gateway.merge import partition_calls
 from tools.tool_search import dispatch_tool_describe, dispatch_tool_search
 
 
@@ -98,3 +101,26 @@ def test_current_and_cached_chat_names_check_the_same_slack_receipt(tmp_path, mo
             "response": {"status": "completed"}
         }
     assert calls == [{"action": "receipt", **receipt}] * len(names)
+
+
+def test_partial_gateway_batch_keeps_completed_read_and_skips_unstarted_calls(monkeypatch):
+    attempted = []
+
+    def broker(body):
+        tool = body["request"]["tool"]
+        attempted.append(tool)
+        if tool == "quickbooks.invoices":
+            return {"data": {"page": 2}}
+        raise GatewayUnavailable("The service is unavailable.", code="SYNAPSEK_UNAVAILABLE")
+
+    monkeypatch.setattr(synapsek, "command", broker)
+    calls = [{"name": "connectors__quickbooks__" + tool, "arguments": {}}
+             for tool in ("invoices", "customers", "suppliers")]
+    plans = partition_calls(calls).remote
+    results = run_remote(plans, None, availability=lambda: True, client_factory=None)
+    assert attempted == ["quickbooks.invoices", "quickbooks.customers"]
+    assert [item["name"] for item in results] == [call["name"] for call in calls]
+    assert results[0]["response"] == {"page": 2}
+    assert results[1]["error"]["code"] == "PROVIDER_ERROR"
+    assert "service is unavailable" in results[1]["error"]["message"]
+    assert "not attempted" in results[2]["error"]["message"]
