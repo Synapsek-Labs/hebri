@@ -79,9 +79,15 @@ jobs:
           else
             .venv/bin/python -m pip install -e . pytest==9.1.1
           fi
-      - name: Test KEEL lifecycle, profile isolation and backed-up migration
+      - name: Test KEEL lifecycle, profile isolation and backup restores
         shell: bash
-        run: bash scripts/run_tests.sh tests/plugins/test_bundled_keel.py tests/hermes_cli/test_keel_upgrade.py --tb=short
+        run: >-
+          bash scripts/run_tests.sh
+          tests/plugins/test_bundled_keel.py
+          tests/hermes_cli/test_keel_upgrade.py
+          tests/hermes_cli/test_backup_uri_roundtrip.py
+          tests/hermes_cli/test_backup_install_tree.py
+          --tb=short
 
   quality:
     needs: [validate-version, context-regressions, keel-memory]
