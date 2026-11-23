@@ -12,6 +12,8 @@ import threading
 import time
 from pathlib import Path
 
+import psutil
+
 from .identity import DeviceError, Identity, fingerprint, private_address
 from .transport import PeerServer, request
 
@@ -339,12 +341,13 @@ class DeviceService:
     def addresses(self):
         addresses = set()
         try:
-            rows = socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+            interfaces = psutil.net_if_addrs()
         except OSError:
-            rows = []
+            interfaces = {}
+        rows = (row for entries in interfaces.values() for row in entries if row.family == socket.AF_INET)
         for row in rows:
             try:
-                address = private_address(row[4][0])
+                address = private_address(row.address)
                 if not address.startswith("127."):
                     addresses.add(address)
             except DeviceError:

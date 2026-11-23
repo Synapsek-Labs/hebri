@@ -3,6 +3,7 @@ import base64
 import copy
 import json
 import secrets
+import socket
 import threading
 import time
 
@@ -39,6 +40,27 @@ def pair(host, client, allow=True):
     host.approve(pending[0]["ticket"], allow)
     assert client.finish(host.identity.id)["status"] == "approved"
     return invite
+
+
+def test_device_status_uses_local_interfaces_without_dns(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import psutil
+    device = DeviceService(tmp_path, Fernet.generate_key().decode(), discovery=False)
+    def no_dns(*args, **kwargs):
+        raise AssertionError("Device status must not wait for hostname resolution")
+    monkeypatch.setattr(socket, "getaddrinfo", no_dns)
+    monkeypatch.setattr(psutil, "net_if_addrs", lambda: {
+        "lan": [SimpleNamespace(family=socket.AF_INET, address=value) for value in
+                ["192.168.1.2", "10.0.0.2", "127.0.0.1", "8.8.8.8", "169.254.1.2"]],
+        "vpn": [SimpleNamespace(family=socket.AF_INET, address="100.64.0.2"),
+                SimpleNamespace(family=socket.AF_INET, address="10.0.0.2"),
+                SimpleNamespace(family=socket.AF_INET6, address="::1")],
+    })
+    assert device.snapshot()["addresses"] == ["10.0.0.2", "100.64.0.2", "192.168.1.2"]
+    def unavailable():
+        raise OSError("interface enumeration unavailable")
+    monkeypatch.setattr(psutil, "net_if_addrs", unavailable)
+    assert device.snapshot()["addresses"] == []
 
 
 def test_failed_settings_save_preserves_memory_disk_and_running_service(devices, monkeypatch):
