@@ -60,7 +60,15 @@ export {
 } from './providers'
 
 import { $gateway, activeGatewayConnectionId } from '@/store/gateway'
+import {
+  $gettingStartedSeen,
+  finishGettingStarted,
+  gettingStartedEligibleAtLaunch,
+  shouldShowGettingStarted
+} from '@/store/getting-started'
 import { captureOnboardingScope, requestOnboardingGateway } from '@/store/onboarding-scope'
+
+import { GettingStartedPages } from './getting-started'
 
 interface DesktopOnboardingOverlayProps {
   enabled: boolean
@@ -202,6 +210,7 @@ export function DesktopOnboardingOverlay({
 }: DesktopOnboardingOverlayProps) {
   const { t } = useI18n()
   const onboarding = useStore($desktopOnboarding)
+  const gettingStartedSeen = useStore($gettingStartedSeen)
   const boot = useStore($desktopBoot)
   const introReveal = useStore($introReveal)
   useStore($onboardingSurfaces)
@@ -357,12 +366,21 @@ export function DesktopOnboardingOverlay({
     return null
   }
 
+  const gettingStarted =
+    gettingStartedEligibleAtLaunch &&
+    shouldShowGettingStarted({
+      ready: enabled && onboarding.configured !== null && !onboarding.freeTierReady,
+      manual: onboarding.manual,
+      idle: onboarding.flow.status === 'idle' && onboarding.mode === 'oauth' && !onboarding.localEndpoint,
+      seen: gettingStartedSeen
+    })
+
   // Mount from frame 1 so we replace the boot overlay seamlessly. The
   // configured field stays null until the runtime check resolves; only then
   // do we know whether to dismiss (true) or surface the picker (false).
   // EXCEPTION: manual mode (user opened the selector from a working app to
   // add/switch a provider) shows the overlay regardless of configured state.
-  if (onboarding.configured === true && !onboarding.manual && !onboarding.freeTierReady) {
+  if (onboarding.configured === true && !onboarding.manual && !onboarding.freeTierReady && !gettingStarted) {
     return null
   }
 
@@ -424,6 +442,7 @@ export function DesktopOnboardingOverlay({
           bare
             ? ''
             : 'overflow-hidden rounded-xl border border-(--stroke-nous) bg-(--ui-chat-bubble-background) shadow-nous',
+          gettingStarted && 'max-h-[90vh] overflow-y-auto',
           // Bare confirm screen orchestrates its own per-element exit; the
           // carded states use the simple lift/blur dissolve.
           leaving && !bare
@@ -431,7 +450,7 @@ export function DesktopOnboardingOverlay({
             : 'translate-y-0 scale-100 opacity-100 blur-0'
         )}
       >
-        {showPicker || !ready ? <Header /> : null}
+        {!gettingStarted && (showPicker || !ready) ? <Header /> : null}
         {onboarding.manual ? (
           <Button
             aria-label={t.common.close}
@@ -444,18 +463,28 @@ export function DesktopOnboardingOverlay({
           </Button>
         ) : null}
         <div className="grid gap-3 p-5">
-          {reason ? <ReasonNotice reason={reason} /> : null}
-          {ready && showPicker && !freeTierIntro && !onboarding.manual ? <FreeTierSetupNotice ctx={ctx} /> : null}
-          {ready ? (
-            freeTierIntro ? (
-              <FreeTierReadyPanel leaving={leaving} onDismiss={dismissFreeTierIntro} />
-            ) : showPicker ? (
-              <Picker ctx={ctx} />
-            ) : (
-              <FlowPanel ctx={ctx} flow={flow} leaving={leaving} onBegin={finalizeOnboarding} />
-            )
+          {gettingStarted ? (
+            <GettingStartedPages
+              firstRun={onboarding.configured !== true}
+              onDone={finishGettingStarted}
+              showActions={false}
+            />
           ) : (
-            <Preparing boot={boot} />
+            <>
+              {reason ? <ReasonNotice reason={reason} /> : null}
+              {ready && showPicker && !freeTierIntro && !onboarding.manual ? <FreeTierSetupNotice ctx={ctx} /> : null}
+              {ready ? (
+                freeTierIntro ? (
+                  <FreeTierReadyPanel leaving={leaving} onDismiss={dismissFreeTierIntro} />
+                ) : showPicker ? (
+                  <Picker ctx={ctx} />
+                ) : (
+                  <FlowPanel ctx={ctx} flow={flow} leaving={leaving} onBegin={finalizeOnboarding} />
+                )
+              ) : (
+                <Preparing boot={boot} />
+              )}
+            </>
           )}
         </div>
       </div>
