@@ -63,6 +63,15 @@ def test_device_status_uses_local_interfaces_without_dns(tmp_path, monkeypatch):
     assert device.snapshot()["addresses"] == []
 
 
+def test_device_start_and_pairing_do_not_require_reverse_dns(devices, monkeypatch):
+    def no_reverse_dns(*args, **kwargs):
+        raise AssertionError("Device startup must not wait for reverse DNS")
+    monkeypatch.setattr(socket, "getfqdn", no_reverse_dns)
+    host, client = devices("dns-host"), devices("dns-client")
+    pair(host, client)
+    assert client.snapshot()["peers"][0]["outgoing"] is True
+
+
 def test_failed_settings_save_preserves_memory_disk_and_running_service(devices, monkeypatch):
     device = devices("settings")
     before = copy.deepcopy(device.identity.data)
