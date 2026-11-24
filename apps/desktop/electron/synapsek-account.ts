@@ -457,7 +457,7 @@ export class SynapsekAccount {
     const saved = loadAccount(this.storage)
     return {
       state: saved ? 'unavailable' : 'signed_out',
-      ...(saved?.appOrigin === this.origin ? { recoveryUserId: saved.userId } : {}),
+      ...(saved ? { recoveryUserId: saved.userId } : {}),
       error: error instanceof AccountError ? error.code : 'account_unavailable'
     }
   }

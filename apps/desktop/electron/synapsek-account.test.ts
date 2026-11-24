@@ -95,6 +95,17 @@ function fileStore() {
 }
 
 describe('Synapsek native account', () => {
+  it('keeps explicit local recovery available after the configured portal changes', async () => {
+    const { storage } = fileStore()
+    saveAccount({ ...saved, appOrigin: 'https://previous.example' }, storage)
+    const json = vi.fn<typeof accountJson>()
+    const account = new SynapsekAccount(origin, storage, async () => {}, json)
+    await expect(account.signOut(user)).rejects.toThrow('reauthentication_required')
+    expect(json).not.toHaveBeenCalled()
+    const recovery = account.recoveryView(new AccountError('reauthentication_required'))
+    expect(recovery.recoveryUserId).toBe(user)
+    expect(await account.forgetLocal(recovery.recoveryUserId)).toEqual({ state: 'signed_out' })
+  })
   it('preserves a replacement credential written while remote revocation is in flight', async () => {
     const { storage } = fileStore()
     saveAccount(saved, storage)
