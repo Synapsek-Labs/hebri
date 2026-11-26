@@ -300,6 +300,12 @@ and the right-sidebar toggle sit on the right; haptics remain in settings.
 In Simple interface mode only sidebar, settings and the layout editor render,
 and the reserved cluster width shrinks with them (`TITLEBAR_FIXED_TOOLS` is the
 one table both the buttons and the width reservation read).
+The chat sidebar exposes the same Simple / Advanced control as Appearance >
+General, so changing interface mode does not require finding the layout editor.
+Saved results and scheduled jobs remain reachable in either mode. This is a
+presentation preference: switching it must not change the chosen model, approval
+policy, system prompt or tool schemas, or send an extra model request. Existing
+prompt caching and deferred capability loading remain runtime responsibilities.
 Holding Cmd (Ctrl off macOS) reveals small slot numbers over the target strip's
 status dots after 400ms, without changing tab widths. Hints follow the same
 binding and hovered/focused-zone resolver as the number shortcuts.

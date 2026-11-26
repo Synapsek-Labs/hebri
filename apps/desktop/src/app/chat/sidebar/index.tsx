@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation } from 'react-router'
 
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
+import { InterfaceModeControl } from '@/components/interface-mode-control'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
@@ -203,8 +204,8 @@ const NON_SESSION_LOAD_STEP = 10
 // screen — has the connection to itself first.
 const PROJECT_TREE_WARM_MS = 2_000
 
-// A row's `tier` is the one mode it belongs to (Simple keeps the setup rows,
-// Advanced adds the readouts); the list filters once, nothing is passed down.
+// A row may declare a mode-specific tier; the list filters once.
+// Core setup, results and scheduled work stay available in both modes.
 const SIDEBAR_NAV: SidebarNavItem[] = [
   {
     id: 'new-session',
@@ -227,23 +228,21 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     route: MESSAGING_ROUTE,
     keybindActionId: 'nav.messaging'
   },
-  // Artifacts and Scheduled jobs are outputs of running Hebri the developer
-  // way; Capabilities and Messaging are how anyone sets it up.
+  // Results and recurring work belong to both interfaces; developer panes
+  // remain governed by the presentation policy rather than hiding these routes.
   {
     id: 'artifacts',
     label: '',
     icon: props => <Codicon name="files" {...props} />,
     route: ARTIFACTS_ROUTE,
-    keybindActionId: 'nav.artifacts',
-    tier: 'advanced'
+    keybindActionId: 'nav.artifacts'
   },
   {
     id: 'cron',
     label: '',
     icon: props => <Codicon name="watch" {...props} />,
     route: CRON_ROUTE,
-    keybindActionId: 'nav.cron',
-    tier: 'advanced'
+    keybindActionId: 'nav.cron'
   }
 ]
 
@@ -1577,6 +1576,10 @@ export function ChatSidebar({
     >
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
+          <div className="flex flex-col items-start gap-1 px-2 pb-2">
+            <span className="text-[0.6875rem] text-(--ui-text-tertiary)">{t.interfaceMode.title}</span>
+            <InterfaceModeControl />
+          </div>
           <SidebarGroupContent>
             <SidebarMenu className="gap-px">
               {navItems.map(item => {

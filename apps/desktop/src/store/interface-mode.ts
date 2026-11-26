@@ -10,7 +10,7 @@ import { isBrowserWindow, isHudWindow, isSecondaryWindow } from '@/store/windows
 // conversation? Two answers. ADVANCED is the app as it has always been — every
 // preference the user set, honoured. SIMPLE is chat-first: the standing
 // developer instrumentation (statusbar, profile rail, terminal / files / review
-// panes, technical tool payloads, the artifacts / scheduled-jobs rows) rests
+// panes and technical tool payloads) rests
 // out of the way. Mode changes what is SHOWN, never what Hebri can do: every
 // route still answers ⌘K, every pane still answers its keybind and the agent's
 // `focus_pane`.
