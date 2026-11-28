@@ -1,0 +1,114 @@
+name: Qualify reviewed Lab packages
+
+# Qualification-only branch: consumes the exact PR artifacts, never publishes.
+on:
+  push:
+    branches: [codex/hebri-native-qualification-20261128]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  packaged-task:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-15
+            artifact: hebri-macos-arm64
+          - os: macos-15-intel
+            artifact: hebri-macos-x64
+          - os: ubuntu-24.04
+            artifact: hebri-linux
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      REVIEWED_SHA: dbe22a198c842c4283c3f13c8f9ce83947fe3a3c
+      REVIEWED_RUN: '46120015245'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: dbe22a198c842c4283c3f13c8f9ce83947fe3a3c
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 26
+          cache: npm
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Verify reviewed artifact provenance
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_NAME: ${{ matrix.artifact }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(gh run view "$REVIEWED_RUN" --repo Synapsek-Labs/hebri --json headSha --jq .headSha)" = "$REVIEWED_SHA"
+          test "$(gh run view "$REVIEWED_RUN" --repo Synapsek-Labs/hebri --json conclusion --jq .conclusion)" = success
+          gh api "repos/Synapsek-Labs/hebri/actions/runs/$REVIEWED_RUN/artifacts" > artifact-provenance.json
+          gh run download "$REVIEWED_RUN" --repo Synapsek-Labs/hebri --name "$ARTIFACT_NAME" --dir qualification-artifacts
+      - name: Install locked test dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm ci
+          python -m pip install uv==0.13.6
+          uv sync --frozen --extra dev
+          uv pip install --python .venv/bin/python PyNaCl==1.6.2
+          printf 'HERMES_DESKTOP_PYTHON=%s/.venv/bin/python\nVIRTUAL_ENV=%s/.venv\n' "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+      - name: Prepare native Mac application
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          directory=mac
+          if test "$(uname -m)" = arm64; then directory=mac-arm64; fi
+          mkdir -p "apps/desktop/release/$directory"
+          archives=(qualification-artifacts/*.zip)
+          test "${#archives[@]}" -eq 1
+          shasum -a 256 "${archives[0]}" > package-sha256.txt
+          ditto -x -k "${archives[0]}" "apps/desktop/release/$directory"
+          test -x "apps/desktop/release/$directory/Hebri.app/Contents/MacOS/Hebri"
+      - name: Install Linux DEB on disposable runner
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth libgtk-3-0 libnss3 libasound2t64
+          packages=(qualification-artifacts/*.deb)
+          test "${#packages[@]}" -eq 1
+          sha256sum "${packages[0]}" > package-sha256.txt
+          sudo apt-get install -y "$GITHUB_WORKSPACE/${packages[0]}"
+          dpkg-query -W -f='${Status} ${Version}\n' hebri | tee installed-package.txt
+          test -x /opt/Hebri/Hebri
+          mkdir -p apps/desktop/release
+          ln -s /opt/Hebri apps/desktop/release/linux-unpacked
+      - name: Execute approved task through packaged renderer and agent
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          if test "$RUNNER_OS" = Linux; then
+            unset WAYLAND_DISPLAY
+            export ELECTRON_OZONE_PLATFORM_HINT=x11
+            xvfb-run -a npx playwright test e2e/lab-packaged-runtime.spec.ts --workers=1 --retries=0
+          else
+            npx playwright test e2e/lab-packaged-runtime.spec.ts --workers=1 --retries=0
+          fi
+      - name: Save native qualification evidence
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lab-native-evidence-${{ matrix.os }}
+          path: |
+            artifact-provenance.json
+            package-sha256.txt
+            installed-package.txt
+            apps/desktop/test-results/
+            apps/desktop/playwright-report/
+          if-no-files-found: error
