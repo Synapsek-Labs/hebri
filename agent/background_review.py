@@ -148,6 +148,8 @@ def cancel_background_review_for_live_turn(agent: Any) -> None:
 # conversation as warm cache reads. When auxiliary.background_review.{provider,model} routes it
 # to a DIFFERENT model the cache is cold anyway, so the fork replays a compact digest instead.
 _REVIEW_MAX_ITERATIONS = 16
+_AUTOMATIC_REVIEW_MAX_ITERATIONS = 4
+_AUTOMATIC_REVIEW_INPUT_BUDGET = 120_000
 # Aggregate INPUT-token budget for one review fork (checked in conversation_loop's
 # ``_review_input_budget_exhausted``). Request #1 replays the full snapshot as a warm cache read
 # (both compression gates deferred until the first response); compaction then bounds each
@@ -200,6 +202,17 @@ def _review_input_token_budget(
     except (KeyError, TypeError, ValueError):
         return _context_derived_review_input_budget(review_agent)
     return budget if budget > 0 else None
+
+
+def _automatic_review_input_budget(task_cfg: Optional[Dict[str, Any]], derived: Optional[int]) -> Optional[int]:
+    """A larger model context must not silently raise unattended learning spend.
+
+    Explicit profile budgets retain their existing semantics, including unlimited.
+    This changes only the detached automatic review, never the live prompt/cache.
+    """
+    if task_cfg and "max_input_tokens" in task_cfg:
+        return derived
+    return min(derived, _AUTOMATIC_REVIEW_INPUT_BUDGET) if derived else _AUTOMATIC_REVIEW_INPUT_BUDGET
 
 
 def load_background_review_settings() -> tuple[bool, Dict[str, Any]]:
@@ -1145,7 +1158,13 @@ def _run_review_fork(
     keeps the ``background_review`` origin (curator/skill guards still apply) but marks the fork
     attended, so the unattended-only memory delete gate leaves the full operation set available."""
     st.review_agent, _rt, _routed = build_cache_parity_fork(
-        agent, task_cfg, max_iterations=_REVIEW_MAX_ITERATIONS)
+        agent, task_cfg, max_iterations=_REVIEW_MAX_ITERATIONS if explicit else _AUTOMATIC_REVIEW_MAX_ITERATIONS)
+    if not explicit:
+        st.review_agent._review_input_token_budget = _automatic_review_input_budget(
+            task_cfg, st.review_agent._review_input_token_budget)
+        prompt += ("\nAutomatic review has a small call budget. Prefer one useful update or no change. "
+                   "For a new skill, include YAML frontmatter name and a description of at most 60 characters. "
+                   "After a validation error, make at most one corrected write attempt; then stop.\n")
     st.review_agent._review_attended = explicit
     _track_review_fork(agent, st.review_agent, register=True)
     from hermes_cli.plugins import set_thread_tool_whitelist, clear_thread_tool_whitelist

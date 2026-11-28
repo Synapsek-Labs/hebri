@@ -1808,7 +1808,7 @@ export const ja = defineLocale({
     nav: {
       newChat: { title: '新しいセッション', detail: '新しいセッションを開始' },
       settings: { title: '設定', detail: 'Hebri デスクトップを設定' },
-      capabilities: { title: 'スキルとツール', detail: 'スキル、ツールセット、プロバイダーを有効化' },
+      capabilities: { title: 'スキルとアプリ', detail: 'スキル、ツールセット、プロバイダーを有効化' },
       messaging: { title: 'メッセージング', detail: 'Telegram、Slack、Discord などを設定' },
       artifacts: { title: 'アーティファクト', detail: '生成された出力を閲覧' }
     },
@@ -2417,7 +2417,7 @@ export const ja = defineLocale({
     },
     nav: {
       'new-session': '新しいセッション',
-      capabilities: 'スキルとツール',
+      capabilities: 'スキルとアプリ',
       messaging: 'メッセージング',
       artifacts: 'アーティファクト',
       cron: 'スケジュール済みジョブ'
@@ -3747,9 +3747,20 @@ export const ja = defineLocale({
       attachingFile: '添付中…'
     },
     approval: {
+      actionTitle: 'この操作を許可しますか？',
+      scriptTitle: '自動化スクリプトを実行しますか？',
+      scriptReason:
+        'このスクリプトは、各手順で確認せずにプログラムを実行したりファイルを変更したりできます。承認する前にスクリプト全体を確認してください。',
+      unknownReason:
+        'Hebri は具体的な影響を説明していません。技術的な詳細を確認するか、拒否して先に説明を求めてください。',
+      safetyWarning:
+        '自動安全審査がこの操作をブロックしました。承認すると、このリクエストについてその判断を上書きします。',
+      onceExplanation: '「今回のみ許可」はこのリクエストだけを許可します。「拒否」はこの操作の実行を防ぎます。',
+      technicalDetails: '技術的な詳細',
+      otherOptions: 'その他の選択肢',
       gatewayDisconnected: 'Hebri ゲートウェイが接続されていません',
       sendFailed: '承認応答を送信できませんでした',
-      run: '実行',
+      run: '今回のみ許可',
       command: 'コマンド',
       moreOptions: 'その他の承認オプション',
       allowSession: 'このセッションで許可',
@@ -3815,6 +3826,8 @@ export const ja = defineLocale({
       statusDone: '完了',
       resultUnavailable: '結果を取得できません',
       resultInterrupted: '中断されました',
+      resultInterruptedRecovery:
+        '結果が確認される前に停止しました。一部の操作は実行済みの可能性があります。再試行する前に確認してください。',
       memoryWriteNoted: 'メモリへの書き込みを記録',
       actions: {
         read: '読み取り完了',

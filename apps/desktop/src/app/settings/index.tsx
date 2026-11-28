@@ -1,7 +1,8 @@
 import { useStore } from '@nanostores/react'
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 
+import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
 import { codiconIcon } from '@/components/ui/codicon'
 import { KbdCombo } from '@/components/ui/kbd'
@@ -65,6 +66,8 @@ import { resolveSettingsSubpage, settingsSubpageIcon, settingsSubpages } from '.
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
 import { vaultOwnerKey, VaultSettings } from './vault-settings'
 
+const MessagingSettings = lazy(async () => ({ default: (await import('../messaging')).MessagingView }))
+
 const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   ...SECTIONS.map(s => `config:${s.id}` as SettingsViewId),
   'providers',
@@ -77,6 +80,7 @@ const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   'keys',
   'vault',
   'notifications',
+  'messaging',
   'billing',
   'sessions',
   'about'
@@ -274,6 +278,13 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
 
             return [entry]
           }),
+          {
+            active: activeView === 'messaging',
+            icon: codiconIcon('comment'),
+            id: 'messaging',
+            label: t.sidebar.nav.messaging,
+            onSelect: () => setActiveView('messaging')
+          },
           {
             active: activeView === 'notifications',
             icon: Bell,
@@ -558,6 +569,10 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
       />
     ) : activeView === 'keys' ? (
       <KeysSettings view={keysView} />
+    ) : activeView === 'messaging' ? (
+      <Suspense fallback={<PageLoader label={t.sidebar.nav.messaging} />}>
+        <MessagingSettings className="min-h-96" />
+      </Suspense>
     ) : activeView === 'notifications' ? (
       <NotificationsSettings subpage={subpage} />
     ) : activeView === 'billing' ? (

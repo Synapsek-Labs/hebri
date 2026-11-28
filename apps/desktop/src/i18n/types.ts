@@ -4210,6 +4210,14 @@ export interface Translations {
       attachingFile: string
     }
     approval: {
+      actionTitle: string
+      scriptTitle: string
+      scriptReason: string
+      unknownReason: string
+      safetyWarning: string
+      onceExplanation: string
+      technicalDetails: string
+      otherOptions: string
       gatewayDisconnected: string
       sendFailed: string
       reconnect: string
@@ -4321,6 +4329,7 @@ export interface Translations {
       /** Over-budget / rejected memory write title — not "Saved to memory". */
       resultUnavailable: string
       resultInterrupted: string
+      resultInterruptedRecovery: string
       memoryWriteNoted: string
       actions: {
         read: string

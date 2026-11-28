@@ -1428,7 +1428,7 @@ export const ar = defineLocale({
         detail: 'تكوين Hebri desktop'
       },
       capabilities: {
-        title: 'المهارات والأدوات',
+        title: 'المهارات والتطبيقات',
         detail: 'تفعيل المهارات ومجموعات الأدوات والمزوّدين'
       },
       messaging: {
@@ -2049,7 +2049,7 @@ export const ar = defineLocale({
     },
     nav: {
       'new-session': 'جلسة جديدة',
-      capabilities: 'المهارات',
+      capabilities: 'المهارات والتطبيقات',
       messaging: 'المراسلة',
       artifacts: 'العناصر',
       chat: 'المحادثة',
@@ -3176,9 +3176,18 @@ export const ar = defineLocale({
       attachingFile: 'جار إرفاق الملف'
     },
     approval: {
+      actionTitle: 'هل تسمح بهذا الإجراء؟',
+      scriptTitle: 'هل تريد تشغيل برنامج نصي للأتمتة؟',
+      scriptReason:
+        'يمكن لهذا البرنامج النصي تشغيل برامج وتغيير ملفات دون طلب موافقتك في كل خطوة. راجع البرنامج النصي بالكامل قبل الموافقة.',
+      unknownReason: 'لم يوضح Hebri التأثيرات المحددة. راجع التفاصيل التقنية أو ارفض واطلب توضيحًا أولًا.',
+      safetyWarning: 'حظرت المراجعة الأمنية التلقائية هذا الإجراء. الموافقة تتجاوز هذا القرار لهذا الطلب.',
+      onceExplanation: 'الموافقة لمرة واحدة تسمح بهذا الطلب فقط. الرفض يمنع تنفيذ هذا الإجراء.',
+      technicalDetails: 'التفاصيل التقنية',
+      otherOptions: 'خيارات أخرى',
       gatewayDisconnected: 'البوابة غير متصلة',
       sendFailed: 'فشل الإرسال',
-      run: 'تشغيل',
+      run: 'الموافقة لمرة واحدة',
       command: 'الأمر',
       moreOptions: 'خيارات إضافية',
       allowSession: 'السماح لهذه الجلسة',
@@ -3239,6 +3248,8 @@ export const ar = defineLocale({
       statusDone: 'تم',
       resultUnavailable: 'النتيجة غير متاحة',
       resultInterrupted: 'تمت المقاطعة',
+      resultInterruptedRecovery:
+        'توقف قبل تأكيد النتيجة. قد تكون بعض الإجراءات قد نُفذت بالفعل؛ تحقق قبل إعادة المحاولة.',
       memoryWriteNoted: 'تم تسجيل كتابة الذاكرة',
       actions: {
         read: 'قراءة',

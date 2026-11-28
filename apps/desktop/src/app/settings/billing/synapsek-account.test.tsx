@@ -26,6 +26,17 @@ afterEach(() => {
 })
 
 describe('Synapsek account controls', () => {
+  it('shows pending account status without premature sign-in controls', async () => {
+    let resolve!: (value: any) => void
+    const pending = new Promise<any>(r => { resolve = r })
+    window.hermesDesktop = { ...previous, synapsekAccount: () => pending } as NonNullable<typeof window.hermesDesktop>
+    render(<SynapsekAccountSettings />)
+    expect(screen.getByRole('status').textContent).toBe(accountCopy.en.working)
+    expect(screen.queryByRole('button', { name: accountCopy.en.signIn })).toBeNull()
+    resolve({ ok: true, value: { state: 'signed_out' } })
+    expect(await screen.findByRole('button', { name: accountCopy.en.signIn })).toBeTruthy()
+    expect(screen.queryByText(accountCopy.en.working)).toBeNull()
+  })
   it('opens registration without signing in, activating a model or claiming the account is connected', async () => {
     const bridge = vi.fn(async (operation: string) => ({
       ok: true as const,

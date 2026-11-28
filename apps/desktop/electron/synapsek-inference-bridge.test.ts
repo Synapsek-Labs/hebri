@@ -1,9 +1,108 @@
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { AccountError } from './synapsek-account'
-import { startSynapsekInferenceBridge } from './synapsek-inference-bridge'
+import { managedInferenceJson, startSynapsekInferenceBridge } from './synapsek-inference-bridge'
 
 let close: (() => Promise<void>) | undefined
+it('propagates Stop before managed response headers arrive', async () => {
+  let started!: () => void, stopped!: () => void
+  const ready = new Promise<void>(resolve => { started = resolve })
+  const aborted = new Promise<void>(resolve => { stopped = resolve })
+  const bridge = await startSynapsekInferenceBridge({
+    status: async () => ({ state:'signed_in',account:{userId:'qa'} }),
+    managedRequest: async (_action,_body,_id,_owner,signal) => {
+      expect(signal).toBeInstanceOf(AbortSignal)
+      started()
+      return new Promise((_resolve,reject) => signal!.addEventListener('abort',()=>{ stopped();reject(signal!.reason) },{once:true}))
+    }
+  })
+  close = bridge.close
+  const controller = new AbortController()
+  const call = fetch(`${bridge.env.HEBRI_SYNAPSEK_BRIDGE_URL}/chat/completions`, {
+    method:'POST',signal:controller.signal,headers:{Authorization:`Bearer ${bridge.env.HEBRI_SYNAPSEK_BRIDGE_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify({stream:true})
+  }).catch(error=>error)
+  await ready
+  controller.abort()
+  await aborted
+  expect((await call).name).toBe('AbortError')
+})
+
+it.each(['invalid_completion', 'reasoning_required'])('retains %s as a recoverable 400 instead of a service outage', async code => {
+  const originalFetch = globalThis.fetch
+  const bridge = await startSynapsekInferenceBridge({
+    status: async () => ({ state: 'signed_in', account: { userId: 'qa' } }),
+    managedRequest: async () => {
+      vi.stubGlobal('fetch', vi.fn(async () => Response.json({ code }, { status: 400 })))
+      try { return await managedInferenceJson('https://fixture.invalid/completion', {}) }
+      finally { vi.stubGlobal('fetch', originalFetch) }
+    }
+  })
+  close = bridge.close
+  const response = await originalFetch(`${bridge.env.HEBRI_SYNAPSEK_BRIDGE_URL}/chat/completions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${bridge.env.HEBRI_SYNAPSEK_BRIDGE_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stream: false })
+  })
+  expect(response.status).toBe(400)
+  const error = (await response.json()).error
+  expect(error.code).toBe(code)
+  if (code === 'reasoning_required') expect(error.message).toBe('Reasoning is required and cannot be disabled.')
+  vi.unstubAllGlobals()
+})
+
+it('cancels the native response reader when the agent disconnects', async () => {
+  const cancelled = vi.fn()
+  const stream = new ReadableStream<Uint8Array>({ cancel: cancelled })
+  const bridge = await startSynapsekInferenceBridge({
+    status: async () => ({ state: 'signed_in', account: { userId: 'a' } }),
+    managedRequest: async () => new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
+  })
+  close = bridge.close
+  const response = await fetch(`${bridge.env.HEBRI_SYNAPSEK_BRIDGE_URL}/chat/completions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${bridge.env.HEBRI_SYNAPSEK_BRIDGE_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stream: true })
+  })
+  await response.body!.cancel()
+  await vi.waitFor(() => expect(cancelled).toHaveBeenCalledOnce())
+})
+
+it('delivers an upstream chunk over the real loopback socket before generation completes', async () => {
+  let upstream!: ReadableStreamDefaultController<Uint8Array>
+  const stream = new ReadableStream<Uint8Array>({ start(c) { upstream = c } })
+  const bridge = await startSynapsekInferenceBridge({
+    status: async () => ({ state: 'signed_in', account: { userId: 'a' } }),
+    managedRequest: async () => new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } })
+  })
+  close = bridge.close
+  const response = await fetch(`${bridge.env.HEBRI_SYNAPSEK_BRIDGE_URL}/chat/completions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${bridge.env.HEBRI_SYNAPSEK_BRIDGE_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stream: true })
+  })
+  const reader = response.body!.getReader()
+  upstream.enqueue(new TextEncoder().encode('data: {"choices":[{"delta":{"content":"first"},"finish_reason":null}]}\n\n'))
+  const first = await reader.read()
+  expect(new TextDecoder().decode(first.value)).toContain('first')
+  expect(first.done).toBe(false)
+  upstream.enqueue(new TextEncoder().encode('data: [DONE]\n\n')); upstream.close()
+  let rest = ''
+  for (;;) { const part = await reader.read(); if (part.done) break; rest += new TextDecoder().decode(part.value) }
+  expect(rest).toContain('[DONE]')
+})
+
+it('turns a clean but truncated SSE body into an error, never successful partial tool execution', async () => {
+  const bridge = await startSynapsekInferenceBridge({
+    status: async () => ({ state: 'signed_in', account: { userId: 'a' } }),
+    managedRequest: async () => new Response('data: {"choices":[{"delta":{"tool_calls":[]},"finish_reason":null}]}\n\n',
+      { headers: { 'Content-Type': 'text/event-stream' } })
+  })
+  close = bridge.close
+  const response = await fetch(`${bridge.env.HEBRI_SYNAPSEK_BRIDGE_URL}/chat/completions`, {
+    method: 'POST', headers: { Authorization: `Bearer ${bridge.env.HEBRI_SYNAPSEK_BRIDGE_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stream: true })
+  })
+  const text = await response.text()
+  expect(text).toContain('"error"')
+  expect(text).not.toContain('[DONE]')
+})
 it('keeps connector requests on the owner-pinned native channel and rejects browsers and oversized bodies', async () => {
   let user = 'a'
   const connectorRequest = vi.fn(async () => ({ items: [] }))
@@ -67,7 +166,11 @@ it.each([
 it('carries real HTTP tool/usage streams and rejects ambient browsers, retries and cross-account reuse', async () => {
   let user = 'account-a'
 
-  const managedRequest = vi.fn(async () => ({
+  const status = vi.fn(async () => ({ state: 'signed_in', account: { userId: user } }))
+  const managedRequest = vi.fn(async (_action: string, _body: unknown, _id: string | undefined, expectedUserId: string | undefined) => {
+    // Model the account adapter's per-request ownership enforcement.
+    if (expectedUserId !== user) throw new AccountError('restart_after_account_switch')
+    return ({
     id: 'gen-test',
     created: 1,
     model: 'test/model',
@@ -83,10 +186,10 @@ it('carries real HTTP tool/usage streams and rejects ambient browsers, retries a
       }
     ],
     usage: { prompt_tokens: 10, completion_tokens: 4, total_tokens: 14 }
-  }))
+  }) })
 
   const bridge = await startSynapsekInferenceBridge({
-    status: async () => ({ state: 'signed_in', account: { userId: user } }),
+    status,
     managedRequest
   })
 
@@ -118,12 +221,14 @@ it('carries real HTTP tool/usage streams and rejects ambient browsers, retries a
     'completion',
     expect.any(Object),
     expect.stringMatching(/^[a-f0-9-]{36}$/),
-    'account-a'
+    'account-a',
+    expect.any(AbortSignal)
   ])
   user = 'account-b'
   expect(await (await send()).text()).toContain('restart_after_account_switch')
-  expect(managedRequest).toHaveBeenCalledTimes(1)
+  expect(managedRequest).toHaveBeenCalledTimes(2)
   user = 'account-a'
   expect((await send({}, { stream: false })).status).toBe(200)
-  expect(managedRequest).toHaveBeenCalledTimes(2)
+  expect(managedRequest).toHaveBeenCalledTimes(3)
+  expect(status).toHaveBeenCalledOnce()
 })

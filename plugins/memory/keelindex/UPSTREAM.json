@@ -7,9 +7,9 @@
     {
       "source": "src/keel/__init__.py",
       "path": "__init__.py",
-      "sha256": "07d3cba4822c1f454e27284711f2f947c9a5c1886cfdce0fb371e49078940637",
+      "sha256": "cc0cfaad3d04c882bf171cb5f7950cb7a94822ead412d803fc54f0ab9cfd82bd",
       "upstream_sha256": "e59bf2d849fac99287901b6ecb69f0f2ecc7f4e6edb8df8b040d0924f9607d01",
-      "patch": "Index Unicode words and recognize exact non-ASCII text, including unspaced East Asian phrases."
+      "patch": "Index Unicode words and recognize exact non-ASCII text, including unspaced East Asian phrases. Add primary-only, revision-bound forgetting of directly saved facts while retaining audit history and built-in mirror ownership."
     },
     {
       "source": "src/keel/aliasgen.py",

@@ -1,6 +1,6 @@
 /** Simple mode is presentation, never a permission or approval bypass. */
 export function simpleSettingsAllowed(view: string, page?: string | null): boolean {
-  if (view === 'billing' || view === 'notifications') {
+  if (view === 'billing' || view === 'notifications' || view === 'messaging' || view === 'gateway') {
     return true
   }
 

@@ -108,6 +108,8 @@ export const itChatTools = {
       statusRecovered: 'Ripresa riuscita',
       resultUnavailable: 'Risultato non disponibile',
       resultInterrupted: 'Interrotto',
+      resultInterruptedRecovery:
+        'Interrotto prima della conferma del risultato. Alcune azioni potrebbero essere già avvenute; verifica prima di riprovare.',
       memoryWriteNoted: 'Scrittura in memoria annotata',
       actions: {
         read: 'Letto',

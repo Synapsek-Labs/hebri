@@ -2,6 +2,74 @@
 import json
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from threading import Thread
+from threading import Event
+import pytest
+
+
+@pytest.mark.parametrize('settlement_error', [False, True])
+def test_synapsek_sdk_stream_keeps_tool_result_pending_until_receipt(settlement_error):
+    """The real SDK must raise on a late billing error, not return a tool turn."""
+    from openai import OpenAI, APIError
+
+    release = Event()
+    base = {'id': 'gen-test', 'object': 'chat.completion.chunk', 'created': 1, 'model': 'synapsek-auto'}
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            self.rfile.read(int(self.headers['Content-Length']))
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/event-stream')
+            self.end_headers()
+
+            def send(value):
+                data = value if isinstance(value, str) else json.dumps(value)
+                self.wfile.write(f'data: {data}\n\n'.encode())
+                self.wfile.flush()
+
+            send({**base, 'choices': [{'index': 0, 'delta': {'role': 'assistant', 'tool_calls': [
+                {'index': 0, 'id': 'tool1', 'type': 'function', 'function': {'name': 'read_file', 'arguments': '{'}}
+            ]}, 'finish_reason': None}]})
+            if not release.wait(5):
+                return
+            if settlement_error:
+                send({'error': {'message': 'usage_settlement_pending', 'type': 'synapsek_error', 'code': 'usage_settlement_pending'}})
+                return
+            send({**base, 'choices': [{'index': 0, 'delta': {'tool_calls': [
+                {'index': 0, 'function': {'arguments': '"path":"fixture.txt"}'}}
+            ]}, 'finish_reason': None}]})
+            send({**base, 'choices': [{'index': 0, 'delta': {}, 'finish_reason': 'tool_calls'}]})
+            send({**base, 'choices': [], 'usage': {'prompt_tokens': 20, 'completion_tokens': 4, 'total_tokens': 24,
+                'cost': 0.00001, 'prompt_tokens_details': {'cached_tokens': 10}}})
+            send('[DONE]')
+
+        def log_message(self, *_args):
+            pass
+
+    server = ThreadingHTTPServer(('127.0.0.1', 0), Handler)
+    worker = Thread(target=server.serve_forever, daemon=True)
+    worker.start()
+    try:
+        with OpenAI(api_key='isolated-fixture', base_url=f'http://127.0.0.1:{server.server_port}/v1', max_retries=0) as client:
+            with client.chat.completions.create(model='synapsek-auto', messages=[{'role': 'user', 'content': 'read fixture'}],
+                    stream=True, stream_options={'include_usage': True}) as stream:
+                first = next(stream)
+                assert first.choices[0].finish_reason is None
+                assert first.choices[0].delta.tool_calls[0].function.arguments == '{'
+                # First delta was received while the response was still blocked.
+                assert not release.is_set()
+                release.set()
+                if settlement_error:
+                    with pytest.raises(APIError, match='usage_settlement_pending'):
+                        list(stream)
+                else:
+                    tail = list(stream)
+                    assert tail[0].choices[0].delta.tool_calls[0].function.arguments == '"path":"fixture.txt"}'
+                    assert tail[1].choices[0].finish_reason == 'tool_calls'
+                    assert tail[2].usage.prompt_tokens_details.cached_tokens == 10
+                    assert tail[2].usage.cost == 0.00001
+    finally:
+        release.set()
+        server.shutdown(); server.server_close(); worker.join()
 
 
 def test_desktop_provider_resolves_across_homes_and_executes_tool_followup(tmp_path, monkeypatch):

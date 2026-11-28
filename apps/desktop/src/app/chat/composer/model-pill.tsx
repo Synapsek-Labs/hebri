@@ -6,6 +6,7 @@ import { useTourMarker } from '@/app/chat/tour-marker'
 import { ModelMenuCloseContext } from '@/app/shell/model-menu-panel'
 import { isElementInHiddenPane } from '@/components/pane-shell/pane-visibility'
 import { Button } from '@/components/ui/button'
+import { Codicon } from '@/components/ui/codicon'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { releaseTypingFocus } from '@/components/ui/keyboard-first'
@@ -171,16 +172,23 @@ export function ModelPill({
   const title = pinnedOverride ? `${baseTitle} — ${copy.modelPinned}` : baseTitle
 
   if (simple) {
+    const providerLabel =
+      currentProvider === 'synapsek' ? 'Synapsek Labs' : providerDisplayName(currentProvider) || 'Synapsek Labs'
+
     return (
-      <Button
-        className={pillClass}
-        onClick={() => {
-          window.location.hash = '#/settings?tab=billing'
-        }}
-        variant="ghost"
-      >
-        {currentProvider === 'synapsek' ? 'Synapsek Labs' : providerDisplayName(currentProvider) || 'Synapsek Labs'}
-      </Button>
+      <Tip label={providerLabel} side="top">
+        <Button
+          aria-label={providerLabel}
+          className={pillClass}
+          onClick={() => {
+            window.location.hash = '#/settings?tab=billing'
+          }}
+          type="button"
+          variant="ghost"
+        >
+          {compact ? <Codicon aria-hidden name="account" /> : <span className="truncate">{providerLabel}</span>}
+        </Button>
+      </Tip>
     )
   }
 

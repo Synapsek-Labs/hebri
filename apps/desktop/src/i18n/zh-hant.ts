@@ -2056,7 +2056,7 @@ export const zhHant = defineLocale({
     nav: {
       newChat: { title: '新工作階段', detail: '開始新的工作階段' },
       settings: { title: '設定', detail: '設定 Hebri 桌面端' },
-      capabilities: { title: '技能與工具', detail: '啟用技能、工具集和提供方' },
+      capabilities: { title: '技能與應用', detail: '啟用技能、工具集和提供方' },
       messaging: { title: '訊息平台', detail: '設定 Telegram、Slack、Discord 等' },
       artifacts: { title: '成品', detail: '瀏覽產生的輸出' }
     },
@@ -2641,7 +2641,7 @@ export const zhHant = defineLocale({
     },
     nav: {
       'new-session': '新工作階段',
-      capabilities: '技能與工具',
+      capabilities: '技能與應用',
       messaging: '訊息平台',
       artifacts: '成品',
       cron: '排程工作'
@@ -3929,9 +3929,17 @@ export const zhHant = defineLocale({
       attachingFile: '正在附加…'
     },
     approval: {
+      actionTitle: '允許此操作嗎？',
+      scriptTitle: '執行自動化指令碼嗎？',
+      scriptReason: '此指令碼可以執行程式和修改檔案，而不會在每一步徵求同意。核准前請檢查完整指令碼。',
+      unknownReason: 'Hebri 尚未說明具體影響。請查看技術詳細資料，或拒絕並先要求 Hebri 解釋。',
+      safetyWarning: '自動安全審查已封鎖此操作。核准將僅對此請求覆寫該決定。',
+      onceExplanation: '「僅允許一次」僅允許此請求。「拒絕」將阻止此操作執行。',
+      technicalDetails: '技術詳細資料',
+      otherOptions: '其他選項',
       gatewayDisconnected: 'Hebri 閘道未連線',
       sendFailed: '無法傳送核准回應',
-      run: '執行',
+      run: '僅允許一次',
       command: '指令',
       moreOptions: '更多核准選項',
       allowSession: '允許本工作階段',
@@ -3997,6 +4005,7 @@ export const zhHant = defineLocale({
       statusDone: '完成',
       resultUnavailable: '結果無法使用',
       resultInterrupted: '已中斷',
+      resultInterruptedRecovery: '在確認結果前已停止。部分操作可能已執行；重試前請先檢查。',
       memoryWriteNoted: '已記下記憶寫入',
       actions: {
         read: '已讀取',

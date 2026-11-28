@@ -1,0 +1,30 @@
+/* Fresh Simple-mode drafts form one flowing welcome/editor group. The editor
+   stays in the same portal host, preserving draft text, attachments and focus.
+   Once a session owns the view these rules no longer apply. A popped-out editor
+   lives under document.body and retains its independent positioning. */
+[data-simple-start] {
+  overflow-y: auto;
+  padding-block: 1rem;
+}
+
+[data-simple-start] > [data-slot='composer-bounds'] {
+  flex: 0 0 auto;
+  overflow: visible;
+  margin-block-start: auto;
+  contain: none;
+}
+
+[data-simple-start] [data-slot='composer-dock'],
+[data-simple-start] [data-slot='composer-root']:not(form) {
+  position: relative;
+  inset: auto;
+  transform: none;
+  /* Keep this indirect: CSS optimisation folds a literal identity translate
+     into transform, leaving Tailwind's standalone -50% translate active. */
+  --simple-start-translate: 0;
+  translate: var(--simple-start-translate);
+  flex-shrink: 0;
+  width: min(var(--composer-width), calc(100% - 2rem));
+  max-width: 44rem;
+  margin: 0 auto auto;
+}

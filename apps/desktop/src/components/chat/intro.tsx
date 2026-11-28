@@ -1,9 +1,12 @@
+import { useStore } from '@nanostores/react'
 import { useState } from 'react'
 
 import { useI18n } from '@/i18n'
 import { capitalize, normalize } from '@/lib/text'
+import { $interfaceMode } from '@/store/interface-mode'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
+import { SimpleHome } from './simple-home'
 import { Wordmark } from './wordmark'
 
 type IntroCopy = {
@@ -159,6 +162,7 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 }
 
 export function Intro({ personality, seed }: IntroProps) {
+  const mode = useStore($interfaceMode)
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
   const { t } = useI18n()
   const rotationSeed = mountSeed + (seed ?? 0)
@@ -169,6 +173,10 @@ export function Intro({ personality, seed }: IntroProps) {
     t.intro.stock[key] ?? (NEUTRAL_PERSONALITIES.has(key) ? t.intro.stock.none : t.intro.custom(personality || ''))
 
   const body = bodies?.[Math.abs(rotationSeed) % bodies.length] ?? copy.body
+
+  if (mode === 'simple') {
+    return <SimpleHome />
+  }
 
   return (
     <div

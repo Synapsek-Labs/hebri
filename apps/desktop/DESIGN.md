@@ -79,6 +79,16 @@ replace the foreground transcript or steal focus.
 
 ## Surfaces & elevation
 
+Simple mode's fresh-chat home uses a compact heading and localized task starters
+instead of the oversized wordmark. Starters use the existing scoped composer
+insert bus, append an editable draft, and never submit, change tools or request
+a model. The existing fresh-draft visibility gate owns when this home appears;
+opening an existing conversation must not show it over the transcript.
+On a fresh Simple-mode draft, the welcome and docked composer share a flowing
+center group. The editor keeps its portal host and component identity; starting
+a conversation restores bottom docking. Short windows scroll the group instead
+of clipping controls. A separately floating composer keeps its own position.
+
 Floating panels (base `Dialog`, route overlays, boot/install/update surfaces,
 model-picker, onboarding, prompt overlays, notifications) use:
 

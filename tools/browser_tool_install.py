@@ -232,8 +232,10 @@ def _chromium_installed() -> bool:
     Without a binary the CLI hangs on first use until the command timeout fires, so the tool must not be advertised.
     """
     _bt = _origin()
-    if _bt._cached_chromium_installed is not None:
-        return _bt._cached_chromium_installed
+    # Setup or a terminal may install Chromium after a cold-start miss. Only cache
+    # success: a negative process-lifetime cache prevents recovery until restart.
+    if _bt._cached_chromium_installed is True:
+        return True
     ab_path = os.environ.get("AGENT_BROWSER_EXECUTABLE_PATH", "").strip()
     _bt._cached_chromium_installed = bool(
         (ab_path and (os.path.isfile(ab_path) or shutil.which(ab_path)))

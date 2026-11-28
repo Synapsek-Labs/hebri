@@ -1702,7 +1702,7 @@ def _close_durable_failed_turn(agent, result: Any) -> None:
         start = result.get("current_turn_user_idx")
         turn_messages = messages[start:] if isinstance(start, int) and 0 <= start < len(messages) else messages
         append_message(messages, {
-            "role": "assistant", "content": failed_turn_notice(turn_messages), "display_kind": FAILED_TURN_DISPLAY_KIND,
+            "role": "assistant", "content": failed_turn_notice(turn_messages, interrupted=result.get("interrupted") is True), "display_kind": FAILED_TURN_DISPLAY_KIND,
         })
         agent._flush_messages_to_session_db(messages)
     except Exception:

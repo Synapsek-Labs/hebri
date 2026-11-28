@@ -95,6 +95,53 @@ function fileStore() {
 }
 
 describe('Synapsek native account', () => {
+  it('revalidates inference consent and the pinned runtime owner before every model request', async () => {
+    const { storage } = fileStore()
+    saveAccount(saved, storage)
+    let enabled = true
+    const account = new SynapsekAccount(origin, storage, async () => {}, async url => {
+      if (url.endsWith('action=config')) return config
+      if (url === config.tokenUrl) return { token_type: 'Bearer', access_token: 'test-access', refresh_token: 'rotated', expires_in: 3600 }
+      return { ...snapshot(), managedInferenceEnabled: enabled }
+    })
+    const request = vi.spyOn(globalThis, 'fetch').mockResolvedValue(Response.json({ choices: [] }))
+    try {
+      await expect(account.managedRequest('completion', {}, 'fixture', client)).rejects.toThrow('restart_after_account_switch')
+      expect(request).not.toHaveBeenCalled()
+      await account.managedRequest('completion', {}, 'fixture', user)
+      expect(request).toHaveBeenCalledOnce()
+      enabled = false
+      await expect(account.managedRequest('completion', {}, 'fixture', user)).rejects.toThrow('inference_not_enabled')
+      expect(request).toHaveBeenCalledOnce()
+    } finally { request.mockRestore() }
+  })
+  it('can revoke the account while a managed generation is still waiting for its response', async () => {
+    const { storage } = fileStore()
+    saveAccount(saved, storage)
+    const account = new SynapsekAccount(origin, storage, async () => {}, async url => {
+      if (url.endsWith('action=config')) return config
+      if (url === config.tokenUrl) return { token_type: 'Bearer', access_token: 'test-access', refresh_token: 'rotated', expires_in: 3600 }
+      if (url.endsWith('action=revoke')) return { revoked: true, refreshRevoked: true }
+      return { ...snapshot(), managedInferenceEnabled: true }
+    })
+    let release!: (value: Response) => void, started!: () => void
+    const accepted = new Promise<void>(r => { started = r })
+    const request = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      started(); return new Promise<Response>(r => { release = r })
+    })
+    const pending = account.managedRequest('completion', { stream: false }, 'test-request', user)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    try {
+      await accepted
+      const result = await Promise.race([account.signOut(user), new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error('account lock held during generation')), 1000)
+      })])
+      expect(result).toMatchObject({ state: 'signed_out' })
+      expect(loadAccount(storage)).toBeNull()
+    } finally {
+      clearTimeout(timer); release(Response.json({ choices: [] })); await pending; request.mockRestore()
+    }
+  })
   it('keeps explicit local recovery available after the configured portal changes', async () => {
     const { storage } = fileStore()
     saveAccount({ ...saved, appOrigin: 'https://previous.example' }, storage)

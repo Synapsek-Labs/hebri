@@ -219,9 +219,7 @@ describe('buildToolView web-search query', () => {
     )
 
     expect(view.searchQuery).toBe('Hebri Agent Desktop tool calls')
-    expect(view.searchHits).toEqual([
-      { snippet: 'Desktop docs', title: 'Hebri docs', url: 'https://example.com/docs' }
-    ])
+    expect(view.searchHits).toEqual([{ snippet: 'Desktop docs', title: 'Hebri docs', url: 'https://example.com/docs' }])
   })
 })
 

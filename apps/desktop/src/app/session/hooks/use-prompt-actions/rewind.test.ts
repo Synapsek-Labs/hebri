@@ -343,6 +343,23 @@ describe('finalizeUserInterruptedMessages', () => {
     expect(message.parts[1].interrupted).toBeUndefined()
   })
 
+  it('marks a still-running call in a sealed interim bubble, without changing earlier turns or landed results', () => {
+    const sealed = { ...toolTurn(), pending: false, interim: true, completedAt: 10.75 }
+    sealed.parts = sealed.parts.map(part => ({ ...part, completedAt: 10.75 }))
+    const previous = { ...sealed, id: 'earlier-turn' }
+
+    const messages = finalizeUserInterruptedMessages(
+      [previous, row('user-current', 'user', 'run the file task'), sealed],
+      null,
+      11.25
+    )
+
+    expect(messages[0]).toBe(previous)
+    expect(messages[2].parts[0].interrupted).toBeUndefined()
+    expect(messages[2].parts[1].interrupted).toBe(true)
+    expect(messages[2].parts[0]).toMatchObject({ result: 'listed' })
+  })
+
   it('does not mark calls sealed by the non-user settle path', () => {
     const [message] = finalizeInterruptedMessages([toolTurn()], 'assistant-tool', 11.25)
 

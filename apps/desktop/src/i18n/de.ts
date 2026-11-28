@@ -3121,7 +3121,7 @@ export const de = defineLocale({
         detail: 'Hebri Desktop konfigurieren'
       },
       capabilities: {
-        title: 'Fähigkeiten',
+        title: 'Skills & Apps',
         detail: 'Skills, Tools, MCP-Server und Plugins'
       },
       messaging: {
@@ -3935,7 +3935,7 @@ export const de = defineLocale({
     profileRail: 'Profil-Leiste',
     nav: {
       'new-session': 'Neue Session',
-      capabilities: 'Fähigkeiten',
+      capabilities: 'Skills & Apps',
       messaging: 'Messaging',
       artifacts: 'Artefakte',
       cron: 'Geplante Jobs'
@@ -5558,13 +5558,24 @@ export const de = defineLocale({
       attachingFile: 'Hängt an…'
     },
     approval: {
+      actionTitle: 'Diese Aktion erlauben?',
+      scriptTitle: 'Ein Automatisierungsskript ausführen?',
+      scriptReason:
+        'Dieses Skript kann Programme ausführen und Dateien ändern, ohne für jeden Schritt nachzufragen. Prüfe vor der Freigabe das gesamte Skript.',
+      unknownReason:
+        'Hebri hat die Auswirkungen nicht konkret erklärt. Prüfe die technischen Details oder lehne ab und bitte zuerst um eine Erklärung.',
+      safetyWarning:
+        'Die automatische Sicherheitsprüfung hat diese Aktion blockiert. Deine Freigabe überschreibt diese Entscheidung für diese Anfrage.',
+      onceExplanation: 'Einmal erlauben gilt nur für diese Anfrage. Ablehnen verhindert die Ausführung.',
+      technicalDetails: 'Technische Details',
+      otherOptions: 'Weitere Optionen',
       gatewayDisconnected: 'Hebri-Gateway ist nicht verbunden',
       sendFailed: 'Genehmigungsantwort konnte nicht gesendet werden',
       reconnect: 'Neu verbinden',
       timedOutSystemLine:
         'Die Freigabe ist abgelaufen — der Befehl wurde nicht ausgeführt. Bitten Sie Hebri, es erneut zu versuchen, oder erhöhen Sie das Limit unter Einstellungen → Sicherheit → Freigabe-Timeout.',
       openSafetySettings: 'Sicherheitseinstellungen öffnen',
-      run: 'Ausführen',
+      run: 'Einmal erlauben',
       command: 'Befehl',
       moreOptions: 'Weitere Genehmigungsoptionen',
       allowSession: 'Diese Session erlauben',
@@ -5681,6 +5692,8 @@ export const de = defineLocale({
       statusDone: 'Fertig',
       resultUnavailable: 'Ergebnis nicht verfügbar',
       resultInterrupted: 'Unterbrochen',
+      resultInterruptedRecovery:
+        'Gestoppt, bevor das Ergebnis bestätigt wurde. Einige Aktionen können bereits erfolgt sein; vor einem erneuten Versuch prüfen.',
       memoryWriteNoted: 'Speicher-Schreiben notiert',
       actions: {
         read: 'Lesen',

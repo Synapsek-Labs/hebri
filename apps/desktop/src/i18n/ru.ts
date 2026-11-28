@@ -1920,7 +1920,7 @@ export const ru = defineLocale({
     nav: {
       newChat: { title: 'Новый сеанс', detail: 'Начать новый сеанс' },
       settings: { title: 'Настройки', detail: 'Настройка Hebri desktop' },
-      capabilities: { title: 'Возможности', detail: 'Навыки, инструменты и MCP-серверы' },
+      capabilities: { title: 'Навыки и приложения', detail: 'Навыки, инструменты и MCP-серверы' },
       messaging: { title: 'Сообщения', detail: 'Настройка Telegram, Slack, Discord и других' },
       artifacts: { title: 'Артефакты', detail: 'Просмотр сгенерированных результатов' }
     },
@@ -2618,7 +2618,7 @@ export const ru = defineLocale({
     },
     nav: {
       'new-session': 'Новый сеанс',
-      capabilities: 'Возможности',
+      capabilities: 'Навыки и приложения',
       messaging: 'Сообщения',
       artifacts: 'Артефакты',
       cron: 'Запланированные задачи'
@@ -3881,9 +3881,21 @@ export const ru = defineLocale({
       attachingFile: 'Прикрепление…'
     },
     approval: {
+      actionTitle: 'Разрешить это действие?',
+      scriptTitle: 'Запустить скрипт автоматизации?',
+      scriptReason:
+        'Этот скрипт может запускать программы и изменять файлы без запроса разрешения на каждый шаг. Проверьте весь скрипт перед одобрением.',
+      unknownReason:
+        'Hebri не объяснил конкретные последствия. Проверьте технические детали или отклоните запрос и сначала попросите объяснение.',
+      safetyWarning:
+        'Автоматическая проверка безопасности заблокировала это действие. Одобрение отменит это решение для данного запроса.',
+      onceExplanation:
+        '«Разрешить один раз» относится только к этому запросу. Отклонение предотвращает выполнение этого действия.',
+      technicalDetails: 'Технические детали',
+      otherOptions: 'Другие варианты',
       gatewayDisconnected: 'Шлюз Hebri не подключён',
       sendFailed: 'Не удалось отправить ответ на подтверждение',
-      run: 'Выполнить',
+      run: 'Разрешить один раз',
       command: 'Команда',
       moreOptions: 'Больше опций подтверждения',
       allowSession: 'Разрешить в этом сеансе',
@@ -3990,6 +4002,8 @@ export const ru = defineLocale({
       statusDone: 'Готово',
       resultUnavailable: 'Результат недоступен',
       resultInterrupted: 'Прервано',
+      resultInterruptedRecovery:
+        'Остановлено до подтверждения результата. Некоторые действия могли уже выполниться; проверьте перед повторной попыткой.',
       memoryWriteNoted: 'Запись в память отмечена',
       actions: {
         read: 'Чтение',

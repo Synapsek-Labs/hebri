@@ -420,9 +420,7 @@ export function finalizeInterruptedMessages(
 }
 
 const markInterruptedToolCall = (part: ChatMessagePart): ChatMessagePart =>
-  part.type === 'tool-call' && part.completedAt === undefined && part.result === undefined
-    ? { ...part, interrupted: true }
-    : part
+  part.type === 'tool-call' && part.result === undefined ? { ...part, interrupted: true } : part
 
 /**
  * Stop/redirect finalize: like `finalizeInterruptedMessages`, but tool calls
@@ -435,8 +433,12 @@ export function finalizeUserInterruptedMessages(
   streamId?: null | string,
   occurredAt = Date.now() / 1000
 ): ChatMessage[] {
-  const marked = messages.map(message =>
-    message.pending || message.id === streamId
+  // Interim commentary seals a bubble's timestamps while its tool can still be
+  // running. Stop must reach those calls too, but never relabel an older turn.
+  const userIndex = messages.findLastIndex(message => message.role === 'user')
+
+  const marked = messages.map((message, index) =>
+    message.pending || message.id === streamId || (userIndex >= 0 && index > userIndex && message.interim)
       ? { ...message, parts: message.parts.map(markInterruptedToolCall) }
       : message
   )

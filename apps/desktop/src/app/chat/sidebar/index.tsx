@@ -144,7 +144,6 @@ import {
   ARTIFACTS_ROUTE,
   CAPABILITIES_ROUTE,
   CRON_ROUTE,
-  MESSAGING_ROUTE,
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution
 } from '../../routes'
@@ -220,13 +219,6 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     icon: props => <Codicon name="symbol-misc" {...props} />,
     route: CAPABILITIES_ROUTE,
     keybindActionId: 'nav.capabilities'
-  },
-  {
-    id: 'messaging',
-    label: '',
-    icon: props => <Codicon name="comment" {...props} />,
-    route: MESSAGING_ROUTE,
-    keybindActionId: 'nav.messaging'
   },
   // Results and recurring work belong to both interfaces; developer panes
   // remain governed by the presentation policy rather than hiding these routes.
@@ -441,13 +433,7 @@ export function ChatSidebar({
   const navPrefs = useContributions(SIDEBAR_NAV_PREFS_AREA)
 
   const navItems = useMemo(
-    () =>
-      applySidebarNavPrefs(
-        [...SIDEBAR_NAV, ...contributedNav]
-          .filter(item => interfaceMode === 'advanced' || item.id === 'new-session')
-          .filter(shownInMode(interfaceMode)),
-        navPrefs
-      ),
+    () => applySidebarNavPrefs([...SIDEBAR_NAV, ...contributedNav].filter(shownInMode(interfaceMode)), navPrefs),
     [contributedNav, interfaceMode, navPrefs]
   )
 

@@ -12,6 +12,7 @@ export type SettingsView =
   | 'gateway'
   | 'keybinds'
   | 'keys'
+  | 'messaging'
   | 'notifications'
   | 'providers'
   | 'sessions'

@@ -3,7 +3,7 @@
 import { useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react'
-import { createContext, type FC, useCallback, useContext, useMemo, useRef, useState } from 'react'
+import { createContext, type FC, useCallback, useContext, useId, useMemo, useRef, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { SCAFFOLD_LABEL_CLASS, ScaffoldRow } from '@/components/chat/scaffold-row'
@@ -38,6 +38,7 @@ import {
 import { setToolDisclosureOpen } from '@/store/tool-view'
 
 import { isApprovalActivity } from './approval-activity'
+import { approvalPresentation } from './approval-presentation'
 import { toolEntryDisclosureId } from './fallback-model/targets'
 import { isToolCallPart, summarizeToolRun } from './run-summary'
 
@@ -236,6 +237,9 @@ const ApprovalCard: FC<ApprovalCardProps> = ({ request, total, position, stack }
   // "Always allow" persists the pattern to ~/.hermes/config.yaml permanently, so
   // it goes through a confirm step rather than firing straight from the menu.
   const [confirmAlways, setConfirmAlways] = useState(false)
+  const [showDetails, setShowDetails] = useState(false)
+  const detailsId = useId()
+  const explanation = approvalPresentation(request, copy)
 
   const present = stack.active
   const busy = submitting !== null || !present || stack.busy
@@ -272,7 +276,7 @@ const ApprovalCard: FC<ApprovalCardProps> = ({ request, total, position, stack }
   const allowPermanent = request.allowPermanent !== false
   const choices = request.choices ?? (request.smartDenied ? ['once', 'deny'] : undefined)
   const allowSession = choices ? choices.includes('session') : true
-  const allowAlways = choices ? choices.includes('always') : allowPermanent
+  const allowAlways = allowPermanent && (choices ? choices.includes('always') : true)
   const hasMoreOptions = allowSession || allowAlways
   const hasCommand = request.command.trim().length > 0
 
@@ -317,19 +321,44 @@ const ApprovalCard: FC<ApprovalCardProps> = ({ request, total, position, stack }
       ref={cardRef}
     >
       <div className="flex items-center gap-2 px-2.5 pt-2 text-xs text-(--ui-text-secondary)">
-        <Codicon name="terminal" size="0.875rem" />
-        <span>{copy.command}</span>
+        <Codicon name="shield" size="0.875rem" />
+        <span>{copy.jumpToApproval}</span>
         {total > 1 && (
           <span className="ml-auto text-[0.6875rem] tabular-nums text-(--ui-text-tertiary)">
             {position} / {total}
           </span>
         )}
       </div>
-      {hasCommand && (
-        <pre className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-words px-2.5 py-2 font-mono text-xs leading-relaxed text-(--ui-text-primary)">
-          {request.command}
-        </pre>
-      )}
+      <div className="space-y-2 px-2.5 py-2">
+        <p className="text-sm font-medium text-(--ui-text-primary)">{explanation.title}</p>
+        <p className="whitespace-pre-wrap break-words text-sm text-(--ui-text-secondary)">{explanation.reason}</p>
+        {explanation.scriptWarning && <p className="text-sm text-(--ui-text-secondary)">{explanation.scriptWarning}</p>}
+        {request.smartDenied && <p className="text-sm font-medium text-(--ui-text-primary)">{copy.safetyWarning}</p>}
+        <p className="text-xs text-(--ui-text-secondary)">{copy.onceExplanation}</p>
+        {hasCommand && (
+          <>
+            <Button
+              aria-controls={detailsId}
+              aria-expanded={showDetails}
+              disabled={busy}
+              onClick={() => setShowDetails(value => !value)}
+              size="sm"
+              variant="text"
+            >
+              {copy.technicalDetails}
+              <ChevronDown className={cn('size-3', showDetails && 'rotate-180')} />
+            </Button>
+            {showDetails && (
+              <pre
+                className="m-0 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-md border border-(--ui-stroke-secondary) p-2 font-mono text-xs leading-relaxed text-(--ui-text-primary)"
+                id={detailsId}
+              >
+                {request.command}
+              </pre>
+            )}
+          </>
+        )}
+      </div>
       <div className="flex items-center justify-end gap-1.5 px-2 pb-2 pt-1" data-slot="tool-approval-actions">
         <Button data-approval-deny="" disabled={busy} onClick={() => void respond('deny')} size="sm" variant="text">
           {submitting === 'deny' ? <Loader2 className="size-3 animate-spin" /> : copy.reject}
@@ -338,7 +367,7 @@ const ApprovalCard: FC<ApprovalCardProps> = ({ request, total, position, stack }
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button aria-label={copy.moreOptions} disabled={busy} size="sm" variant="secondary">
-                {copy.alwaysAllowMenu}
+                {copy.otherOptions}
                 <ChevronDown className="size-3" />
               </Button>
             </DropdownMenuTrigger>
