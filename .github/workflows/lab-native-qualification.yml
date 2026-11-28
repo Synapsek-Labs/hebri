@@ -96,8 +96,30 @@ jobs:
             export ELECTRON_OZONE_PLATFORM_HINT=x11
             xvfb-run -a npx playwright test e2e/lab-packaged-runtime.spec.ts --workers=1 --retries=0
           else
+            # HOME isolation intentionally removes the hosted runner's login
+            # keychain. Provision a real temporary keychain, not plaintext or a
+            # Chromium mock-keychain bypass, before starting the same assertions.
+            python - <<'PY'
+            from pathlib import Path
+            source = Path('e2e/lab-packaged-runtime.spec.ts').read_text()
+            marker = "  const provider = await startScriptedProvider()"
+            assert source.count(marker) == 1
+            setup = """  const keychain = path.join(sandbox.root, 'Library', 'Keychains', 'qualification.keychain-db')
+              fs.mkdirSync(path.dirname(keychain), { recursive: true })
+              const password = randomBytes(32).toString('hex')
+              const security = (args: string[]) => execFileSync('/usr/bin/security', args, {
+                env: { ...process.env, HOME: sandbox.root }, stdio: 'pipe'
+              })
+              security(['create-keychain', '-p', password, keychain])
+              security(['default-keychain', '-d', 'user', '-s', keychain])
+              security(['unlock-keychain', '-p', password, keychain])
+              security(['set-keychain-settings', '-lut', '21600', keychain])
+            """
+            source = "import { execFileSync } from 'node:child_process'\nimport { randomBytes } from 'node:crypto'\n" + source.replace(marker, setup + marker)
+            Path('e2e/qa-packaged-mac-keychain.spec.ts').write_text(source)
+            PY
             # Preserve launch diagnostics from the disposable Mac desktop.
-            DEBUG=pw:protocol npx playwright test e2e/lab-packaged-runtime.spec.ts --workers=1 --retries=0 > native-task.log 2>&1 &
+            npx playwright test e2e/qa-packaged-mac-keychain.spec.ts --workers=1 --retries=0 > native-task.log 2>&1 &
             test_pid=$!
             (sleep 30; screencapture -x native-launch-30s.png; sleep 60; screencapture -x native-launch-90s.png) &
             capture_pid=$!
