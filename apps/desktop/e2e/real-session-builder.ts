@@ -2,6 +2,8 @@ import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 import * as path from 'node:path'
 import { createInterface } from 'node:readline'
 
+import { buildAppEnv } from './fixtures'
+
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
 const DEFAULT_TIMEOUT_MS = 60_000
@@ -74,11 +76,15 @@ export class RealSessionBuilder {
     this.child = spawn('uv', ['run', '--active', '--no-sync', 'python', '-m', 'tui_gateway.entry'], {
       cwd: REPO_ROOT,
       env: {
-        ...process.env,
-        HERMES_HOME: hermesHome,
-        PYTHONPATH: REPO_ROOT,
+        ...buildAppEnv({
+          root: path.dirname(hermesHome),
+          hermesHome,
+          userDataDir: path.join(path.dirname(hermesHome), 'electron-user-data'),
+          cleanup: () => {}
+        }),
+        PYTHONPATH: REPO_ROOT
       },
-      stdio: 'pipe',
+      stdio: 'pipe'
     })
 
     createInterface({ input: this.child.stdout }).on('line', line => this.handleLine(line))
@@ -89,7 +95,11 @@ export class RealSessionBuilder {
     this.child.once('error', error => this.failAll(new Error(`real-session gateway failed to start: ${error.message}`)))
     this.child.once('exit', (code, signal) => {
       if (!this.closed) {
-        this.failAll(new Error(`real-session gateway exited unexpectedly (${signal ?? code ?? 'unknown'}):\n${this.stderr.join('\n')}`))
+        this.failAll(
+          new Error(
+            `real-session gateway exited unexpectedly (${signal ?? code ?? 'unknown'}):\n${this.stderr.join('\n')}`
+          )
+        )
       }
     })
   }
@@ -109,7 +119,7 @@ export class RealSessionBuilder {
       cols: 120,
       cwd: REPO_ROOT,
       source: 'desktop',
-      title: spec.title,
+      title: spec.title
     })
     const runtimeId = requireString(created, 'session_id')
     const sessionId = requireString(created, 'stored_session_id')
@@ -122,13 +132,15 @@ export class RealSessionBuilder {
       }
 
       const completion = this.waitForEvent(
-        frame => frame.params?.type === 'message.complete' && frame.params.session_id === runtimeId,
+        frame => frame.params?.type === 'message.complete' && frame.params.session_id === runtimeId
       )
       await this.request('prompt.submit', { session_id: runtimeId, text })
       const frame = await completion
       const status = readString(frame.params?.payload, 'status')
       if (status !== 'complete') {
-        throw new Error(`real session turn failed with status ${status ?? 'unknown'}: ${JSON.stringify(frame.params?.payload)}`)
+        throw new Error(
+          `real session turn failed with status ${status ?? 'unknown'}: ${JSON.stringify(frame.params?.payload)}`
+        )
       }
     }
 
@@ -154,15 +166,18 @@ export class RealSessionBuilder {
 
   private request<T = unknown>(method: string, params: Record<string, unknown>): Promise<T> {
     const id = ++this.nextRequestId
-    return this.withTimeout(new Promise<T>((resolve, reject) => {
-      this.pending.set(id, { resolve: value => resolve(value as T), reject })
-      this.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`, error => {
-        if (error) {
-          this.pending.delete(id)
-          reject(error)
-        }
-      })
-    }), `request ${method}`)
+    return this.withTimeout(
+      new Promise<T>((resolve, reject) => {
+        this.pending.set(id, { resolve: value => resolve(value as T), reject })
+        this.child.stdin.write(`${JSON.stringify({ jsonrpc: '2.0', id, method, params })}\n`, error => {
+          if (error) {
+            this.pending.delete(id)
+            reject(error)
+          }
+        })
+      }),
+      `request ${method}`
+    )
   }
 
   private waitForEvent(predicate: (frame: JsonRpcFrame) => boolean): Promise<JsonRpcFrame> {
@@ -170,9 +185,12 @@ export class RealSessionBuilder {
     if (index >= 0) {
       return Promise.resolve(this.events.splice(index, 1)[0])
     }
-    return this.withTimeout(new Promise<JsonRpcFrame>((resolve, reject) => {
-      this.eventWaiters.push({ predicate, resolve, reject })
-    }), 'gateway event')
+    return this.withTimeout(
+      new Promise<JsonRpcFrame>((resolve, reject) => {
+        this.eventWaiters.push({ predicate, resolve, reject })
+      }),
+      'gateway event'
+    )
   }
 
   private handleLine(line: string): void {
@@ -188,7 +206,9 @@ export class RealSessionBuilder {
       if (!pending) return
       this.pending.delete(frame.id)
       if (frame.error) {
-        pending.reject(new Error(`JSON-RPC error ${frame.error.code ?? 'unknown'}: ${frame.error.message ?? 'unknown error'}`))
+        pending.reject(
+          new Error(`JSON-RPC error ${frame.error.code ?? 'unknown'}: ${frame.error.message ?? 'unknown error'}`)
+        )
       } else {
         pending.resolve(frame.result)
       }
@@ -207,14 +227,25 @@ export class RealSessionBuilder {
 
   private withTimeout<T>(promise: Promise<T>, operation: string): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Timed out after ${DEFAULT_TIMEOUT_MS / 1000}s waiting for ${operation}:\n${this.stderr.join('\n')}`)), DEFAULT_TIMEOUT_MS)
-      promise.then(value => {
-        clearTimeout(timer)
-        resolve(value)
-      }, error => {
-        clearTimeout(timer)
-        reject(error)
-      })
+      const timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Timed out after ${DEFAULT_TIMEOUT_MS / 1000}s waiting for ${operation}:\n${this.stderr.join('\n')}`
+            )
+          ),
+        DEFAULT_TIMEOUT_MS
+      )
+      promise.then(
+        value => {
+          clearTimeout(timer)
+          resolve(value)
+        },
+        error => {
+          clearTimeout(timer)
+          reject(error)
+        }
+      )
     })
   }
 

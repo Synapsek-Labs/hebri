@@ -3697,6 +3697,21 @@ def _commit_compaction(
     commit_started_at = time.monotonic()
     split_status = "not_applicable"
     old_session_id: Optional[str] = None  # bound only once rotation begins
+    if not agent._session_db:
+        # SDK/in-memory sessions have the same token budget as durable chats.
+        # The post-summary anchors can grow a candidate even when the engine's
+        # earlier size check passed; do not skip the final guard without a DB.
+        for message in compressed:
+            if isinstance(message, dict):
+                message.pop("_compaction_tail", None)
+        compressed, refused_prompt = _salvage_or_refuse_grown_transcript(
+            agent, messages, compressed, system_message=system_message,
+            attempt_started_at=attempt.started_at, attempt_snapshot=attempt.snapshot,
+        )
+        if compressed is None:
+            return _CommitOutcome(
+                compressed=messages, refused_prompt=refused_prompt, commit_started_at=commit_started_at
+            )
     if agent._session_db:
         split_status = "pending"
         try:

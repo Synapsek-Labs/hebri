@@ -336,14 +336,21 @@ export interface TcpProxy {
   connections: () => number
   /** Reset every live connection (the renderer sees an abnormal close, as on a network drop). */
   dropAll: () => number
+  /** Refuse new connections and drop live sockets until restored. */
+  setOnline: (online: boolean) => void
   close: () => Promise<void>
 }
 
 /** A loopback TCP proxy in the test process; the renderer's primary socket is routed through it. */
 export function startTcpProxy(targetPort: number): Promise<TcpProxy> {
   const live = new Set<net.Socket>()
+  let online = true
 
   const server = net.createServer(client => {
+    if (!online) {
+      client.destroy()
+      return
+    }
     const upstream = net.connect(targetPort, '127.0.0.1')
     live.add(client)
 
@@ -367,6 +374,12 @@ export function startTcpProxy(targetPort: number): Promise<TcpProxy> {
       resolve({
         port: (server.address() as net.AddressInfo).port,
         connections: () => live.size,
+        setOnline: value => {
+          online = value
+          if (!online) {
+            for (const socket of [...live]) socket.resetAndDestroy()
+          }
+        },
         dropAll: () => {
           const count = live.size
 

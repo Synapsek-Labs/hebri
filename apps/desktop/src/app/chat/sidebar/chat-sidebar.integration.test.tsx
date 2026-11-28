@@ -148,8 +148,8 @@ describe('ChatSidebar navigation activity', () => {
     })
 
     for (const [pathname, currentView, label] of [
-      ['/capabilities', 'capabilities', 'Capabilities'],
-      ['/messaging', 'messaging', 'Messaging'],
+      ['/capabilities', 'capabilities', 'Skills & apps'],
+      ['/messaging', 'messaging', null],
       ['/artifacts', 'artifacts', 'Artifacts'],
       ['/cron', 'cron', 'Scheduled jobs']
     ] as const) {
@@ -157,6 +157,7 @@ describe('ChatSidebar navigation activity', () => {
       focus('workspace-group')
       renderSidebar(pathname, currentView)
       expectOnlyCurrent(label)
+      expect(screen.queryByRole('button', { name: 'Messaging' })).toBeNull()
       expectOnlySelectedSession(null)
 
       focus('tile-one-group')

@@ -350,6 +350,29 @@ class IndexedStore:
             return [dict(r) for r in db.execute('SELECT * FROM revisions WHERE seq IN (SELECT MAX(seq) FROM revisions GROUP BY id) ORDER BY id')
                     if include_deleted or r['kind'] != 'deleted']
 
+    def forget(self, mid, revision, *, session_id=''):
+        """Retire one exact direct fact; retain history, never erase other stores."""
+        if self.read_only:
+            raise ValueError('store is read-only')
+        if not isinstance(mid, str) or not mid.strip() or len(mid.encode('utf-8')) > 128:
+            raise ValueError('id must be nonempty text within 128 UTF-8 bytes')
+        if type(revision) is not int or revision < 1:
+            raise ValueError('revision must be the positive seq returned by recall')
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            db.row_factory = sqlite3.Row
+            row = db.execute('SELECT * FROM revisions WHERE id=? ORDER BY seq DESC LIMIT 1', (mid,)).fetchone()
+            if row is None or row['seq'] != revision or row['kind'] == 'deleted':
+                raise ValueError('fact changed or was removed; recall again before forgetting')
+            if any(self.builtin_source(row['source'], target) for target in ('memory', 'user')):
+                raise ValueError('use the built-in memory remove action for this mirrored fact')
+            db.execute('INSERT INTO revisions(id,key,body,kind,source,session_id) VALUES(?,?,?,?,?,?)',
+                       (row['id'], row['key'], row['body'], 'deleted', row['source'], session_id))
+            db.execute('DELETE FROM aliases WHERE id=?', (mid,))
+        self._index = None
+        self._alias_cache = None
+        return {'forgotten': mid, 'recall_eligible': False, 'history_retained': True}
+
     @staticmethod
     def builtin_source(source, target):
         """Only records with unambiguous curated-block ownership may be retired."""
@@ -584,21 +607,26 @@ class KeelIndexProvider(MemoryProvider):
                                   session_id=self._sessions.get(home, ''))
 
     def get_tool_schemas(self):
-        return [{'name': 'keel_index_memory', 'description': 'Save/update a user-supplied fact with provenance, or recall exact local text by lexical similarity. Same id supersedes old text. Advice is retained for audit but never recalled.',
+        return [{'name': 'keel_index_memory', 'description': 'Save/update a user-supplied fact, recall local text, or forget a direct fact by id and its current recall seq as revision. Forget removes it from recall, not audit history. Use built-in memory remove for mirrored facts. Same id supersedes old text. Advice is never recalled.',
                  'parameters': {'type': 'object', 'properties': {
-                     'action': {'type': 'string', 'enum': ['save', 'recall']},
+                     'action': {'type': 'string', 'enum': ['save', 'recall', 'forget']},
                      'id': {'type': 'string'}, 'key': {'type': 'string'}, 'body': {'type': 'string'},
                      'source': {'type': 'string'}, 'kind': {'type': 'string', 'enum': ['fact', 'advice']},
-                     'query': {'type': 'string'}}, 'required': ['action'], 'additionalProperties': False}}]
+                     'query': {'type': 'string'}, 'revision': {'type': 'integer', 'minimum': 1}}, 'required': ['action'], 'additionalProperties': False}}]
 
     def handle_tool_call(self, tool_name, args, **kwargs):
         try:
             if tool_name != 'keel_index_memory':
                 raise ValueError('unknown tool')
-            allowed = {'action', 'id', 'key', 'body', 'source', 'kind', 'query'}
+            allowed = {'action', 'id', 'key', 'body', 'source', 'kind', 'query', 'revision'}
             if set(args) - allowed:
                 raise ValueError('unknown arguments; self-reported deltas are not validation')
             action = args.get('action')
+            if action == 'forget':
+                home = str(get_hermes_home().resolve())
+                if not self._write_contexts.get(home, False):
+                    raise ValueError('writes require primary agent context')
+                return _json(self.store.forget(args.get('id'), args.get('revision'), session_id=self._sessions.get(home, '')))
             if action == 'recall':
                 query = args.get('query')
                 if not isinstance(query, str) or not query.strip():
@@ -611,7 +639,7 @@ class KeelIndexProvider(MemoryProvider):
                 if missing:
                     return _json({'stored': None, 'usage': 'save requires non-empty ' + ', '.join(f'"{m}"' for m in missing) + '.'})
                 return _json(self.learn(args['id'], args['key'], args['body'], source=args['source'], kind=args.get('kind', 'fact')))
-            return _json({'usage': 'action must be "save" or "recall".'})
+            return _json({'usage': 'action must be "save", "recall" or "forget".'})
         except (ValueError, KeyError, TypeError, RuntimeError) as exc:
             return _json({'error': str(exc)})
 

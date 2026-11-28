@@ -789,7 +789,7 @@ const itBase = {
         title: 'Impostazioni'
       },
       capabilities: {
-        title: 'Funzionalità'
+        title: 'Competenze e app'
       },
       artifacts: {
         title: 'Documenti e risultati'
@@ -956,7 +956,7 @@ const itBase = {
     nav: {
       messaging: 'Messaggistica',
       'new-session': 'Nuova sessione',
-      capabilities: 'Funzionalità',
+      capabilities: 'Competenze e app',
       artifacts: 'Documenti e risultati',
       cron: 'Attività pianificate'
     },
@@ -1396,8 +1396,20 @@ const itBase = {
       copyPath: 'Copia percorso'
     },
     approval: {
+      actionTitle: 'Consentire questa azione?',
+      scriptTitle: 'Eseguire uno script di automazione?',
+      scriptReason:
+        'Questo script può eseguire programmi e modificare file senza chiedere conferma per ogni passaggio. Controlla lo script completo prima di approvarlo.',
+      unknownReason:
+        'Hebri non ha spiegato gli effetti specifici. Controlla i dettagli tecnici oppure rifiuta e chiedi prima una spiegazione.',
+      safetyWarning:
+        'Il controllo automatico di sicurezza ha bloccato questa azione. Approvarla annulla quella decisione per questa richiesta.',
+      onceExplanation:
+        'Approva una volta consente solo questa richiesta. Rifiuta impedisce l’esecuzione di questa azione.',
+      technicalDetails: 'Dettagli tecnici',
+      otherOptions: 'Altre opzioni',
       reconnect: 'Ricollega',
-      run: 'Esegui'
+      run: 'Approva una volta'
     },
     clarify: {
       skip: 'Salta',

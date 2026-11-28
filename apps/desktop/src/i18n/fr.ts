@@ -3132,7 +3132,7 @@ export const fr = defineLocale({
         detail: 'Configurer Hebri Desktop'
       },
       capabilities: {
-        title: 'Capacités',
+        title: 'Compétences et applications',
         detail: 'Skills, outils, serveurs MCP et plugins'
       },
       messaging: {
@@ -3946,7 +3946,7 @@ export const fr = defineLocale({
     profileRail: 'Barre des profils',
     nav: {
       'new-session': 'Nouvelle session',
-      capabilities: 'Capacités',
+      capabilities: 'Compétences et applications',
       messaging: 'Messagerie',
       artifacts: 'Artefacts',
       cron: 'Tâches planifiées'
@@ -5569,19 +5569,31 @@ export const fr = defineLocale({
       attachingFile: 'Ajout en cours…'
     },
     approval: {
+      actionTitle: 'Autoriser cette action ?',
+      scriptTitle: 'Exécuter un script d’automatisation ?',
+      scriptReason:
+        'Ce script peut lancer des programmes et modifier des fichiers sans demander votre accord à chaque étape. Examinez le script complet avant de l’autoriser.',
+      unknownReason:
+        'Hebri n’a pas expliqué les effets précis. Consultez les détails techniques ou refusez et demandez d’abord une explication.',
+      safetyWarning:
+        'Le contrôle automatique de sécurité a bloqué cette action. Votre autorisation annule cette décision pour cette demande.',
+      onceExplanation:
+        'Autoriser une fois s’applique uniquement à cette demande. Refuser empêche cette action de s’exécuter.',
+      technicalDetails: 'Détails techniques',
+      otherOptions: 'Autres options',
       gatewayDisconnected: "La Gateway Hebri n'est pas connectée",
       sendFailed: "Impossible d'envoyer la réponse d'approbation",
       reconnect: 'Se reconnecter',
       timedOutSystemLine:
         "Le délai d'approbation a expiré — la commande n'a pas été exécutée. Demandez à Hebri de réessayer ou augmentez la limite dans Paramètres → Sécurité → Délai d'approbation.",
       openSafetySettings: 'Ouvrir les paramètres de sécurité',
-      run: 'Exécuter',
+      run: 'Autoriser une fois',
       command: 'Commande',
       moreOptions: "Plus d'options d'approbation",
       allowSession: 'Autoriser cette session',
       alwaysAllowMenu: 'Toujours autoriser…',
       jumpToApproval: 'Approbation requise',
-      reject: 'Rejeter',
+      reject: 'Refuser',
       alwaysTitle: 'Toujours autoriser cette commande ?',
       alwaysDescription: pattern =>
         `Cela ajoute le motif « ${pattern} » à votre liste d'autorisation permanente. Hebri ne redemandera plus pour ce type de commande — que ce soit dans cette session ou dans une session future.`,
@@ -5693,6 +5705,8 @@ export const fr = defineLocale({
       statusDone: 'Terminé',
       resultUnavailable: 'Résultat indisponible',
       resultInterrupted: 'Interrompu',
+      resultInterruptedRecovery:
+        'Arrêté avant confirmation du résultat. Certaines actions ont peut-être déjà eu lieu ; vérifiez avant de réessayer.',
       memoryWriteNoted: 'Écriture en mémoire enregistrée',
       actions: {
         read: 'Lu',

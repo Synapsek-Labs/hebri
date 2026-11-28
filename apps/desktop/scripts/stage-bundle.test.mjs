@@ -9,13 +9,17 @@ test('stages runtime files while excluding desktop release output directories', 
   const repo = mkdtempSync(join(tmpdir(), 'hebri-source-stage-'))
   const scriptPath = join(repo, 'apps/desktop/scripts/stage-bundle.mjs')
   const output = join(repo, 'apps/desktop/build/hebri-source')
-  const artifacts = ['release', 'release2', 'release4', 'release5', 'release12'].map(
+  const artifacts = ['release', 'release2', 'release4', 'release5', 'release12', 'release-frozen', 'release_qa'].map(
     directory => `apps/desktop/${directory}/win-unpacked/resources/app.asar`
   )
+  artifacts.push('.env', '.env.production', 'apps/desktop/.env.local', '.hermes/auth.json', '.aws/credentials')
+  artifacts.push('apps/desktop/test-results/trace.zip', 'apps/desktop/playwright-report/index.html', 'apps/desktop/blob-report/report.zip', 'apps/desktop/tsconfig.e2e.tsbuildinfo')
   const runtime = [
     'apps/desktop/electron/release-updater.ts',
     'apps/desktop/release-notes.md',
-    'skills/release2/SKILL.md'
+    'skills/release2/SKILL.md',
+    '.env.example',
+    'apps/desktop/.env.test.sample'
   ]
   try {
     mkdirSync(dirname(scriptPath), { recursive: true })

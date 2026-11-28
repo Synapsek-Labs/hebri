@@ -1,3 +1,5 @@
+import './simple-start.css'
+
 import { type AppendMessage, AssistantRuntimeProvider, type ThreadMessage } from '@assistant-ui/react'
 import type { ModelOptionsResult } from '@hermes/shared'
 import { useStore } from '@nanostores/react'
@@ -12,6 +14,7 @@ import { sessionShouldHaveTranscript } from '@/app/session/hooks/use-session-act
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
 import { Backdrop } from '@/components/Backdrop'
+import { SimpleHome } from '@/components/chat/simple-home'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
 import { usePaneGroup, usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { $hoveredTreeGroup, $sessionTileDragging, $sessionTileEdgeHover } from '@/components/pane-shell/tree/store'
@@ -27,6 +30,7 @@ import { useStoreSelector } from '@/lib/use-session-slice'
 import { cn } from '@/lib/utils'
 import { migrateSessionDraft } from '@/store/composer'
 import { migrateQueuedPrompts, parkQueuedPrompts } from '@/store/composer-queue'
+import { $interfaceMode } from '@/store/interface-mode'
 import { $introSplash } from '@/store/intro-splash'
 import { $pinnedSessionIds } from '@/store/layout'
 import { $petActive } from '@/store/pet'
@@ -641,6 +645,9 @@ const ChatViewContent = memo(function ChatViewContent({
     selectedSessionId
   })
 
+  const interfaceMode = useStore($interfaceMode)
+  const compactStart = showIntro && interfaceMode === 'simple'
+
   // Session is still loading if the route references a session we haven't
   // resumed yet. Brand-new routed drafts are empty on purpose once a runtime
   // is bound. A session the list already knows has history must keep the
@@ -829,83 +836,88 @@ const ChatViewContent = memo(function ChatViewContent({
         onThreadMessagesChange={onThreadMessagesChange}
         suppressMessages={routeSessionMismatch}
       >
-        <div
-          className="relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]"
-          data-slot="composer-bounds"
-          {...dropHandlers}
-        >
-          <Thread
-            clampToComposer={showChatBar}
-            cwd={currentCwd}
-            gateway={gateway}
-            intro={showIntro ? { personality: introPersonality, seed: introSeed } : undefined}
-            loading={threadLoading}
-            onBranchInNewChat={onBranchInNewChat}
-            onCancel={haltRun}
-            onDismissError={onDismissError}
-            onRestoreToMessage={onRestoreToMessage}
-            scrollProfile={modelOptionsProfile || activeGatewayProfile}
-            sessionId={activeSessionId}
-            sessionKey={threadKey}
-          />
-          {resumeExhausted && routedSessionId && (
-            <ResumeExhaustedOverlay onRetryResume={onRetryResume} sessionId={routedSessionId} />
-          )}
-          {showChatBar && <ScrollToBottomButton sessionId={activeSessionId} />}
-          {/* Vibe hearts rise from the composer only when no pet is out (else
-              they play on the pet). Fired by the core `reaction` event. */}
-          {!petPresent && (
-            <HeartField
-              className="absolute inset-x-0 z-30"
-              config={COMPOSER_HEART_CONFIG}
-              style={{
-                top: 0,
-                bottom: 'calc(var(--composer-measured-height) + 0.25rem)'
-              }}
-            />
-          )}
-          {/* A session drag hovering an EDGE hands the visual to the zone
-              target; the link overlay shows only for the center region. */}
-          <ChatDropOverlay kind={overlayKind} />
-          <ChatSwapOverlay profile={gatewaySwapTarget} />
-          {/* Paint-first wake (#89843): transcript is live, profile gate still
-              settling in the background — subtle badge, not an overlay. */}
-          {isPrimary && !gatewaySwapTarget && <ChatSyncBadge profile={hydrationSyncProfile} />}
-        </div>
-        {/* Docked composers overlay their pane; the shared float escapes pane
-            clipping through a stable portal host without remounting its editor. */}
-        {showChatBar && (
-          <FloatingComposerSurface>
-            <Suspense fallback={<ChatBarFallback />}>
-              <ChatBar
-                busy={busy}
+        <div className="relative flex min-h-0 flex-1 flex-col" data-simple-start={compactStart ? '' : undefined}>
+          <div
+            className="relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]"
+            data-slot="composer-bounds"
+            {...dropHandlers}
+          >
+            {compactStart && <SimpleHome />}
+            <div className={compactStart ? 'hidden' : 'contents'}>
+              <Thread
+                clampToComposer={showChatBar}
                 cwd={currentCwd}
-                disabled={!gatewayOpen}
-                focusKey={activeSessionId}
                 gateway={gateway}
-                maxRecordingSeconds={maxVoiceRecordingSeconds}
-                onAddContextRef={onAddContextRef}
-                onAddUrl={onAddUrl}
-                onAttachDroppedItems={onAttachDroppedItems}
-                onAttachImageBlob={onAttachImageBlob}
-                onAttachPastedText={onAttachPastedText}
-                onCancel={onCancel}
-                onPasteClipboardImage={onPasteClipboardImage}
-                onPickFiles={onPickFiles}
-                onPickFolders={onPickFolders}
-                onPickImages={onPickImages}
-                onRemoveAttachment={onRemoveAttachment}
-                onSteer={onSteer}
-                onSteerHidden={onSteerHidden}
-                onSubmit={onSubmit}
-                onTranscribeAudio={onTranscribeAudio}
-                queueSessionKey={queueSessionKey}
+                intro={showIntro && !compactStart ? { personality: introPersonality, seed: introSeed } : undefined}
+                loading={threadLoading}
+                onBranchInNewChat={onBranchInNewChat}
+                onCancel={haltRun}
+                onDismissError={onDismissError}
+                onRestoreToMessage={onRestoreToMessage}
+                scrollProfile={modelOptionsProfile || activeGatewayProfile}
                 sessionId={activeSessionId}
-                state={chatBarState}
+                sessionKey={threadKey}
               />
-            </Suspense>
-          </FloatingComposerSurface>
-        )}
+            </div>
+            {resumeExhausted && routedSessionId && (
+              <ResumeExhaustedOverlay onRetryResume={onRetryResume} sessionId={routedSessionId} />
+            )}
+            {showChatBar && <ScrollToBottomButton sessionId={activeSessionId} />}
+            {/* Vibe hearts rise from the composer only when no pet is out (else
+              they play on the pet). Fired by the core `reaction` event. */}
+            {!petPresent && (
+              <HeartField
+                className="absolute inset-x-0 z-30"
+                config={COMPOSER_HEART_CONFIG}
+                style={{
+                  top: 0,
+                  bottom: 'calc(var(--composer-measured-height) + 0.25rem)'
+                }}
+              />
+            )}
+            {/* A session drag hovering an EDGE hands the visual to the zone
+              target; the link overlay shows only for the center region. */}
+            <ChatDropOverlay kind={overlayKind} />
+            <ChatSwapOverlay profile={gatewaySwapTarget} />
+            {/* Paint-first wake (#89843): transcript is live, profile gate still
+              settling in the background — subtle badge, not an overlay. */}
+            {isPrimary && !gatewaySwapTarget && <ChatSyncBadge profile={hydrationSyncProfile} />}
+          </div>
+          {/* Docked composers overlay their pane; the shared float escapes pane
+            clipping through a stable portal host without remounting its editor. */}
+          {showChatBar && (
+            <FloatingComposerSurface>
+              <Suspense fallback={<ChatBarFallback />}>
+                <ChatBar
+                  busy={busy}
+                  cwd={currentCwd}
+                  disabled={!gatewayOpen}
+                  focusKey={activeSessionId}
+                  gateway={gateway}
+                  maxRecordingSeconds={maxVoiceRecordingSeconds}
+                  onAddContextRef={onAddContextRef}
+                  onAddUrl={onAddUrl}
+                  onAttachDroppedItems={onAttachDroppedItems}
+                  onAttachImageBlob={onAttachImageBlob}
+                  onAttachPastedText={onAttachPastedText}
+                  onCancel={onCancel}
+                  onPasteClipboardImage={onPasteClipboardImage}
+                  onPickFiles={onPickFiles}
+                  onPickFolders={onPickFolders}
+                  onPickImages={onPickImages}
+                  onRemoveAttachment={onRemoveAttachment}
+                  onSteer={onSteer}
+                  onSteerHidden={onSteerHidden}
+                  onSubmit={onSubmit}
+                  onTranscribeAudio={onTranscribeAudio}
+                  queueSessionKey={queueSessionKey}
+                  sessionId={activeSessionId}
+                  state={chatBarState}
+                />
+              </Suspense>
+            </FloatingComposerSurface>
+          )}
+        </div>
       </ChatRuntimeBoundary>
     </div>
   )

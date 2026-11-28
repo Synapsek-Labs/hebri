@@ -102,3 +102,37 @@ def test_existing_unicode_fact_is_recalled_after_restart(homes, key, body, query
     assert [r["body"] for r in recalled["records"]] == [body]
     unrelated = json.loads(reader.handle_tool_call(tool, {"action": "recall", "query": "天気予報"}))
     assert unrelated["records"] == []
+
+
+def test_direct_fact_forget_is_revision_bound_and_survives_restart(homes):
+    provider = load_memory_provider('keelindex', register_skills=False)
+    provider.initialize('forget-test')
+    saved = provider.learn('delivery', 'delivery code', 'Demo code is MAPLE-482', source='user')
+    reply = json.loads(provider.handle_tool_call('keel_index_memory', {
+        'action': 'forget', 'id': 'delivery', 'revision': saved['revision']}))
+    assert reply.get('forgotten') == 'delivery', reply
+    assert provider.recall('delivery code MAPLE-482')['records'] == []
+    restarted = load_memory_provider('keelindex', register_skills=False)
+    restarted.initialize('new-session')
+    assert restarted.recall('delivery code MAPLE-482')['records'] == []
+    assert restarted.store.history('delivery')[-1]['kind'] == 'deleted'
+    newer = restarted.learn('delivery', 'delivery code', 'Demo code is PINE-526', source='user')
+    stale = json.loads(restarted.handle_tool_call('keel_index_memory', {
+        'action': 'forget', 'id': 'delivery', 'revision': saved['revision']}))
+    assert 'error' in stale
+    assert restarted.recall('delivery code PINE-526')['records'][0]['body'] == 'Demo code is PINE-526'
+    restarted.initialize('child', agent_context='subagent')
+    denied = json.loads(restarted.handle_tool_call('keel_index_memory', {
+        'action': 'forget', 'id': 'delivery', 'revision': newer['revision']}))
+    assert 'primary' in denied.get('error', '')
+
+
+def test_forget_cannot_hide_a_live_builtin_memory_mirror(homes):
+    provider = load_memory_provider('keelindex', register_skills=False)
+    provider.initialize('mirror')
+    provider.store.mirror_builtin('add', 'memory', 'Demo city is Perth')
+    row = provider.store.entries()[0]
+    reply = json.loads(provider.handle_tool_call('keel_index_memory', {
+        'action': 'forget', 'id': row['id'], 'revision': row['seq']}))
+    assert 'built-in' in reply.get('error', '')
+    assert provider.store.entries()[0]['body'] == 'Demo city is Perth'

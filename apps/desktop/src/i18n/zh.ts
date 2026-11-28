@@ -2548,7 +2548,7 @@ export const zh = defineLocale({
     nav: {
       newChat: { title: '新建会话', detail: '开始一个新会话' },
       settings: { title: '设置', detail: '配置 Hebri 桌面端' },
-      capabilities: { title: '技能与工具', detail: '启用技能、工具集与提供方' },
+      capabilities: { title: '技能与应用', detail: '启用技能、工具集与提供方' },
       messaging: { title: '消息平台', detail: '配置 Telegram、Slack、Discord 等' },
       artifacts: { title: '产物', detail: '浏览生成的输出' }
     },
@@ -3281,7 +3281,7 @@ export const zh = defineLocale({
     },
     nav: {
       'new-session': '新建会话',
-      capabilities: '技能与工具',
+      capabilities: '技能与应用',
       messaging: '消息平台',
       artifacts: '产物',
       cron: '定时任务'
@@ -4687,9 +4687,17 @@ export const zh = defineLocale({
       attachingFile: '正在附加…'
     },
     approval: {
+      actionTitle: '允许此操作吗？',
+      scriptTitle: '运行自动化脚本吗？',
+      scriptReason: '此脚本可以运行程序和修改文件，而不会在每一步征求同意。批准前请检查完整脚本。',
+      unknownReason: 'Hebri 尚未说明具体影响。请查看技术详情，或拒绝并先要求 Hebri 解释。',
+      safetyWarning: '自动安全审查已阻止此操作。批准将仅对此请求覆盖该决定。',
+      onceExplanation: '“仅允许一次”仅允许此请求。“拒绝”将阻止此操作运行。',
+      technicalDetails: '技术详情',
+      otherOptions: '其他选项',
       gatewayDisconnected: 'Hebri 网关未连接',
       sendFailed: '无法发送审批响应',
-      run: '运行',
+      run: '仅允许一次',
       command: '命令',
       moreOptions: '更多审批选项',
       allowSession: '允许本会话',
@@ -4795,6 +4803,7 @@ export const zh = defineLocale({
       statusDone: '完成',
       resultUnavailable: '结果不可用',
       resultInterrupted: '已中断',
+      resultInterruptedRecovery: '在确认结果前已停止。部分操作可能已执行；重试前请先检查。',
       memoryWriteNoted: '已记下记忆写入',
       actions: {
         read: '已读取',

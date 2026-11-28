@@ -10,7 +10,8 @@ interface ManagedAccount {
     action: 'models' | 'completion',
     body?: unknown,
     requestId?: string,
-    expectedUserId?: string
+    expectedUserId?: string,
+    signal?: AbortSignal
   ): Promise<any>
 }
 
@@ -26,7 +27,10 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
 
     const fail = (status: number, code: string) => {
       res.writeHead(status)
-      res.end(JSON.stringify({ error: { message: code, type: 'synapsek_error', code } }))
+      // A fixed, non-sensitive description lets the agent's existing reasoning
+      // compatibility ladder recover; raw upstream diagnostics never cross here.
+      const message = code === 'reasoning_required' ? 'Reasoning is required and cannot be disabled.' : code
+      res.end(JSON.stringify({ error: { message, type: 'synapsek_error', code } }))
     }
 
     const supplied = Buffer.from(String(req.headers.authorization || ''))
@@ -61,6 +65,9 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
       return
     }
 
+    const cancelled = new AbortController()
+    const disconnect = () => { if (!res.writableEnded) cancelled.abort() }
+    res.once('close', disconnect)
     try {
       let body: any
 
@@ -95,16 +102,17 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
         }
       }
 
-      const view = await account.status()
-
-      if (view.state !== 'signed_in' || !view.account) {
-        throw new AccountError('inference_not_enabled')
-      }
-
-      owner ??= view.account.userId
-
-      if (owner !== view.account.userId) {
-        throw new AccountError('restart_after_account_switch')
+      // Pin this runtime once. managedRequest revalidates status AND the pinned
+      // owner on every call; a second status round-trip here adds no protection.
+      if (!owner || connector) {
+        const view = await account.status()
+        if (view.state !== 'signed_in' || !view.account) {
+          throw new AccountError('inference_not_enabled')
+        }
+        owner ??= view.account.userId
+        if (owner !== view.account.userId) {
+          throw new AccountError('restart_after_account_switch')
+        }
       }
 
       if (connector) {
@@ -112,7 +120,50 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
         res.end(JSON.stringify(await account.connectorRequest(body, owner)))
         return
       }
-      const result = await account.managedRequest(models ? 'models' : 'completion', body, randomUUID(), owner)
+      cancelled.signal.throwIfAborted()
+      const result = await account.managedRequest(models ? 'models' : 'completion', body, randomUUID(), owner, cancelled.signal)
+
+      if (result instanceof Response) {
+        if (!completion || body?.stream !== true || !result.body || !result.headers.get('content-type')?.startsWith('text/event-stream')) {
+          await result.body?.cancel()
+          throw new AccountError('invalid_response')
+        }
+        const reader = result.body.getReader()
+        const disconnected = () => { void reader.cancel().catch(() => {}) }
+        res.once('close', disconnected)
+        res.setHeader('Content-Type', 'text/event-stream')
+        res.flushHeaders()
+        let size = 0
+        let pending = '', completed = false, failed = false
+        const decoder = new TextDecoder('utf-8', { fatal: true })
+        try {
+          for (;;) {
+            const part = await reader.read()
+            if (part.done || res.destroyed) break
+            size += part.value.length
+            if (size > 2_000_000) throw new AccountError('invalid_response')
+            pending = (pending + decoder.decode(part.value, { stream: true })).replace(/\r\n/g, '\n')
+            let boundary: number
+            while ((boundary = pending.indexOf('\n\n')) >= 0) {
+              const frame = pending.slice(0, boundary)
+              pending = pending.slice(boundary + 2)
+              const data = frame.split('\n').filter(line => line.startsWith('data:')).map(line => line.slice(5).trimStart()).join('\n')
+              if (data === '[DONE]') completed = true
+              else if (data) { const value = JSON.parse(data); if (value.error) failed = true }
+            }
+            if (!res.write(part.value)) await new Promise<void>(resolve => {
+              const ready = () => { res.off('drain', ready); res.off('close', ready); resolve() }
+              res.once('drain', ready); res.once('close', ready)
+            })
+          }
+          if (!res.destroyed && !failed && (!completed || pending.trim() || decoder.decode())) throw new AccountError('invalid_response')
+          res.end()
+        } finally {
+          res.off('close', disconnected)
+          await reader.cancel().catch(() => {})
+        }
+        return
+      }
 
       if (!models && body?.stream === true) {
         // The server completes receipt settlement before releasing a response.
@@ -145,6 +196,7 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
         res.end(JSON.stringify(result))
       }
     } catch (error) {
+      if (res.destroyed) return
       const code = error instanceof AccountError ? error.code : 'managed_inference_unavailable'
 
       const status =
@@ -165,8 +217,10 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
                   ? 503
                   : 400
 
-      fail(status, code)
-    }
+      if (res.headersSent) {
+        if (!res.destroyed) res.end(`data: ${JSON.stringify({ error: { message: code, type: 'synapsek_error', code } })}\n\n`)
+      } else fail(status, code)
+    } finally { res.off('close', disconnect) }
   })
 
   server.requestTimeout = 200_000
@@ -192,7 +246,18 @@ export async function startSynapsekInferenceBridge(account: ManagedAccount) {
 }
 
 export async function managedInferenceJson(url: string, init: RequestInit) {
-  const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.timeout(190_000) })
+  const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.any([AbortSignal.timeout(190_000), ...(init.signal ? [init.signal] : [])]) })
+  return readManagedJson(response)
+}
+
+/** Older deployed backends return JSON; accept that explicit compatibility path. */
+export async function managedInferenceStream(url: string, init: RequestInit) {
+  const response = await fetch(url, { ...init, redirect: 'error', signal: AbortSignal.any([AbortSignal.timeout(190_000), ...(init.signal ? [init.signal] : [])]) })
+  if (response.ok && response.headers.get('content-type')?.startsWith('text/event-stream')) return response
+  return readManagedJson(response)
+}
+
+async function readManagedJson(response: Response) {
   const reader = response.body?.getReader()
 
   if (!reader) {
@@ -223,6 +288,9 @@ export async function managedInferenceJson(url: string, init: RequestInit) {
 
     if (!response.ok) {
       const codes = [
+        'reasoning_required',
+        'invalid_completion',
+        'idempotency_key_required',
         'shared_budget_exhausted',
         'request_already_submitted',
         'inference_not_enabled',

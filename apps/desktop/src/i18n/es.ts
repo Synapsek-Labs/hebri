@@ -3114,7 +3114,7 @@ export const es = defineLocale({
         detail: 'Configura Hebri Desktop'
       },
       capabilities: {
-        title: 'Capacidades',
+        title: 'Habilidades y apps',
         detail: 'Skills, herramientas, servidores MCP y plugins'
       },
       messaging: {
@@ -3927,7 +3927,7 @@ export const es = defineLocale({
     profileRail: 'Barra de perfiles',
     nav: {
       'new-session': 'Nueva sesión',
-      capabilities: 'Capacidades',
+      capabilities: 'Habilidades y apps',
       messaging: 'Mensajería',
       artifacts: 'Artefactos',
       cron: 'Tareas programadas'
@@ -5548,6 +5548,17 @@ export const es = defineLocale({
       attachingFile: 'Adjuntando…'
     },
     approval: {
+      actionTitle: '¿Permitir esta acción?',
+      scriptTitle: '¿Ejecutar un script de automatización?',
+      scriptReason:
+        'Este script puede ejecutar programas y modificar archivos sin pedir permiso en cada paso. Revisa el script completo antes de aprobarlo.',
+      unknownReason:
+        'Hebri no ha explicado los efectos concretos. Revisa los detalles técnicos o rechaza la acción y pide una explicación primero.',
+      safetyWarning:
+        'La revisión automática de seguridad bloqueó esta acción. Aprobarla anula esa decisión para esta solicitud.',
+      onceExplanation: 'Aprobar una vez permite solo esta solicitud. Rechazar impide ejecutar esta acción.',
+      technicalDetails: 'Detalles técnicos',
+      otherOptions: 'Otras opciones',
       gatewayDisconnected:
         'Hebri está sin conexión ahora mismo. El comando sigue esperando tu respuesta (hasta que se agote el tiempo de aprobación). Reconéctate y vuelve a enviarla.',
       sendFailed: 'No se pudo enviar tu respuesta',
@@ -5555,7 +5566,7 @@ export const es = defineLocale({
       timedOutSystemLine:
         'Se agotó el tiempo de aprobación: el comando no se ejecutó. Pide a Hebri que lo intente de nuevo o sube el límite en Configuración → Seguridad → Tiempo de aprobación.',
       openSafetySettings: 'Abrir configuración de seguridad',
-      run: 'Ejecutar',
+      run: 'Aprobar una vez',
       command: 'Comando',
       moreOptions: 'Más opciones de aprobación',
       allowSession: 'Permitir esta sesión',
@@ -5673,6 +5684,8 @@ export const es = defineLocale({
       statusDone: 'Listo',
       resultUnavailable: 'Resultado no disponible',
       resultInterrupted: 'Interrumpido',
+      resultInterruptedRecovery:
+        'Se detuvo antes de confirmar el resultado. Algunas acciones pueden haberse realizado; compruébalo antes de reintentar.',
       memoryWriteNoted: 'Escritura de memoria anotada',
       actions: {
         read: 'Leyó',

@@ -59,6 +59,12 @@ KEEL facts, absent files and ambiguous legacy journal imports require separate
 review. Oversized entries must be split before import; the tool refuses the
 whole plan instead of silently losing them.
 
+Facts saved directly through `keel_index_memory` can be removed from recall with
+its `forget` action, using the fact's `id` and current recall `seq` as `revision`.
+Only a primary agent in the owning profile can do this; a stale revision is
+rejected. This retains audit history and is not secure erasure. Mirrored built-in
+facts must be removed through the built-in memory tool so both stores agree.
+
 `hebri memory off` returns to built-in-only memory without deleting KEEL data.
 Restore a migration backup only with profile writers stopped, using Hebri's
 normal backup restore flow. Restore also restores the backed-up configuration;

@@ -87,6 +87,16 @@ describe('ConnectionSwitcher', () => {
     expect(screen.queryByRole('group', { name: 'Registered gateways' })).toBeNull()
   })
 
+  it('offers gateway setup beside a fresh draft even with only one local source', () => {
+    $connectionsRegistry.set(registry([connection('local', 'This device', 'local')]))
+    render(<ConnectionSwitcher onConnect={onConnect} showSingle />)
+    const trigger = screen.getByRole('button', { name: 'Registered gateways: This device' })
+    fireEvent.pointerDown(trigger, { button: 0, pointerType: 'mouse' })
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Manage gateways…' }))
+    expect(onConnect).toHaveBeenCalledTimes(1)
+    expect(selectConnection).not.toHaveBeenCalled()
+  })
+
   it('shows a named source selector instead of profile-like gateway glyphs', () => {
     $connectionsRegistry.set(
       registry([

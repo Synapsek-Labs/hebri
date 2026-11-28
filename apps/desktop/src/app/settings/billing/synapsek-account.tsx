@@ -91,8 +91,16 @@ export function SynapsekAccountSettings({
     }
   }, [bridge])
 
-  if (!bridge || !available) {
+  if (!bridge) {
     return null
+  }
+  if (!available) {
+    return (
+      <section aria-busy="true" aria-label={copy.title} className="space-y-4 p-6">
+        <h2 className="font-semibold">{copy.title}</h2>
+        <p className="text-sm text-muted-foreground" role="status">{copy.working}</p>
+      </section>
+    )
   }
 
   async function selectSynapsek() {

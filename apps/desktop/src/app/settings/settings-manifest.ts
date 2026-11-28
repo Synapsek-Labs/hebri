@@ -75,7 +75,7 @@ export const SETTINGS_MANIFEST = {
       'terminalFont'
     ),
     interfaceMode: {
-      subpage: 'window-layout',
+      subpage: 'general',
       keywords: ['simple', 'advanced', 'mode', 'interface', 'chrome', 'minimal', 'focus'],
       copy: t => ({ label: t.interfaceMode.title, description: t.interfaceMode.hint })
     },

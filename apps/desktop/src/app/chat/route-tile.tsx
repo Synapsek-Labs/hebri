@@ -32,7 +32,7 @@ const ArtifactsView = lazy(async () => ({ default: (await import('../artifacts')
 const BUILTIN_PAGES: Record<string, { render: () => ReactNode; title: string }> = {
   [ARTIFACTS_ROUTE]: { render: () => <ArtifactsView />, title: 'Artifacts' },
   [MESSAGING_ROUTE]: { render: () => <MessagingView />, title: 'Messaging' },
-  [CAPABILITIES_ROUTE]: { render: () => <CapabilitiesView />, title: 'Capabilities' }
+  [CAPABILITIES_ROUTE]: { render: () => <CapabilitiesView />, title: 'Skills & apps' }
 }
 
 /** Humanize a route path into a tab title: `/my-atlas` → `My Atlas`. */

@@ -8,6 +8,7 @@ import { type SessionView, SessionViewProvider } from '@/app/chat/session-view'
 import { ModelMenuCloseContext } from '@/app/shell/model-menu-panel'
 import { registry } from '@/contrib/registry'
 import { formatModelPillLabel } from '@/lib/model-status-label'
+import { $interfaceMode } from '@/store/interface-mode'
 import { $activeSessionId, $currentModel, setCurrentModel, setCurrentModelSource } from '@/store/session'
 
 import { COMPOSER_AREAS, type ComposerModelPillContext, type ComposerModelPillProvider } from './contrib'
@@ -24,9 +25,31 @@ const modelState = (over: Partial<ChatBarState['model']> = {}): ChatBarState['mo
 
 afterEach(() => {
   cleanup()
+  $interfaceMode.set('advanced')
   $activeSessionId.set(null)
   setCurrentModel('')
   setCurrentModelSource('')
+})
+
+it('keeps the compact Simple account action named and does not submit the composer', () => {
+  $interfaceMode.set('simple')
+  const submit = vi.fn((event: React.FormEvent) => event.preventDefault())
+  const previousHash = window.location.hash
+
+  try {
+    render(
+      <form onSubmit={submit}>
+        <ModelPill compact disabled={false} model={modelState({ provider: 'synapsek' })} />
+      </form>
+    )
+    const button = screen.getByRole('button', { name: 'Synapsek Labs' })
+    expect(button.textContent).toBe('')
+    fireEvent.click(button)
+    expect(window.location.hash).toBe('#/settings?tab=billing')
+    expect(submit).not.toHaveBeenCalled()
+  } finally {
+    window.location.hash = previousHash
+  }
 })
 
 // #62055: a manual composer pick is sticky and silently overrides the

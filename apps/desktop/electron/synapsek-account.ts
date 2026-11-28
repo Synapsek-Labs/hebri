@@ -3,7 +3,7 @@ import http from 'node:http'
 
 import { generatePkcePair, generateState } from './native-oauth'
 import type { AccountSnapshot, SynapsekAccountView } from './synapsek-account-types'
-import { managedInferenceJson } from './synapsek-inference-bridge'
+import { managedInferenceJson, managedInferenceStream } from './synapsek-inference-bridge'
 
 export interface AccountConfig {
   version: 1
@@ -837,24 +837,29 @@ export class SynapsekAccount {
       return result
     })
   }
-  async managedRequest(action: 'models' | 'completion', body?: unknown, requestId?: string, expectedUserId?: string) {
+  async managedRequest(action: 'models' | 'completion', body?: unknown, requestId?: string, expectedUserId?: string, signal?: AbortSignal) {
+    signal?.throwIfAborted()
     const view = await this.status()
 
-    return this.exclusive(async () => {
+    const init = await this.exclusive(async () => {
       const saved = loadAccount(this.storage)
+
+      if (saved && expectedUserId && saved.userId !== expectedUserId) {
+        throw new AccountError('restart_after_account_switch')
+      }
 
       if (
         !saved ||
         !this.tokens ||
         view.state !== 'signed_in' ||
         view.account?.userId !== saved.userId ||
-        (expectedUserId && saved.userId !== expectedUserId) ||
         !view.account.managedInferenceEnabled
       ) {
         throw new AccountError('inference_not_enabled')
       }
 
-      return managedInferenceJson(`${this.origin}/api/desktop-account?action=${action}`, {
+      return {
+        signal,
         method: action === 'models' ? 'GET' : 'POST',
         headers: {
           Authorization: `Bearer ${this.tokens.accessToken}`,
@@ -862,8 +867,13 @@ export class SynapsekAccount {
           ...(requestId ? { 'Idempotency-Key': requestId } : {})
         },
         ...(action === 'completion' ? { body: JSON.stringify(body) } : {})
-      })
+      }
     })
+    // Validate/copy credentials under the account lock, never hold it while a
+    // model generates. Server-side session revocation remains authoritative.
+    const request = action === 'completion' && (body as any)?.stream === true ? managedInferenceStream : managedInferenceJson
+    signal?.throwIfAborted()
+    return request(`${this.origin}/api/desktop-account?action=${action}`, init)
   }
   async connectorRequest(body: unknown, expectedUserId?: string) {
     if (!body || typeof body !== 'object' || JSON.stringify(body).length > 24_000) {

@@ -1698,18 +1698,13 @@ class GatewayTurnMixin:
     def _hmwa_failed_turn_notice(self, agent_result):
         """Choose retry guidance without assuming completed tool effects can be repeated safely."""
         from gateway.media_repair import _current_turn_messages
+        from agent.turn_failure_copy import failed_turn_notice
         # Compression during the failed turn can move the slice boundary; the shared helper falls
         # back to the last user row so tool evidence is not silently dropped.
         turn_messages = _current_turn_messages(
             agent_result.get("messages", []) or [], agent_result.get("history_offset", 0),
         )
-        if any(
-            message.get("role") == "tool"
-            or (message.get("role") == "assistant" and message.get("tool_calls"))
-            for message in turn_messages
-        ):
-            return PARTIAL_FAILED_TURN_NOTICE
-        return FAILED_TURN_NOTICE
+        return failed_turn_notice(turn_messages, interrupted=agent_result.get("interrupted") is True)
 
     async def _hmwa_close_failed_turn(self, session_id, notice):
         """Append the gateway-owned assistant boundary iff the durable tail is an open user row.

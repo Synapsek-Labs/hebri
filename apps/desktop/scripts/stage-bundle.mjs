@@ -42,13 +42,24 @@ const EXCLUDE_TOP = new Set([
 ]);
 
 // Directory names skipped anywhere in the tree.
-const EXCLUDE_DIRS = new Set(["node_modules", "__pycache__", ".pytest_cache", ".tmp", ".venv", ".git"]);
+const EXCLUDE_DIRS = new Set([
+  "node_modules", "__pycache__", ".pytest_cache", ".tmp", ".venv", ".git",
+  ".hermes", ".hebri", ".aws", ".ssh",
+  "test-results", "playwright-report", "blob-report",
+]);
 
 // apps/desktop-specific build artifacts (the packaged app already ships its
 // own renderer; the installed agent rebuilds on demand if ever needed).
 const DESKTOP_EXCLUDE = new Set(["dist", "build", "release"]);
 
 function isExcluded(relParts) {
+  const name = relParts[relParts.length - 1]
+  if (name.endsWith('.tsbuildinfo')) return true
+  // Local packaging must never turn developer credentials into resources.
+  // Keep documented templates; active .env files are never runtime source.
+  if ((name === '.env' || name.startsWith('.env.')) && !/\.(example|sample|template)$/.test(name)) {
+    return true
+  }
   if (EXCLUDE_TOP.has(relParts[0])) {
     return true
   }
@@ -57,7 +68,7 @@ function isExcluded(relParts) {
     relParts[0] === "apps" &&
     relParts[1] === "desktop" &&
     relParts.length > 2 &&
-    (DESKTOP_EXCLUDE.has(relParts[2]) || /^release\d+$/.test(relParts[2]))
+    (DESKTOP_EXCLUDE.has(relParts[2]) || /^release(?:\d+|[-_][\w-]+)$/.test(relParts[2]))
   ) {
     return true
   }

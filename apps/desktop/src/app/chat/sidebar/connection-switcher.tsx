@@ -31,7 +31,15 @@ import { notifyError } from '@/store/notifications'
 
 import { ConnectionGlyph } from './connection-glyph'
 
-export function ConnectionSwitcher({ compact = false, onConnect }: { compact?: boolean; onConnect: () => void }) {
+export function ConnectionSwitcher({
+  compact = false,
+  showSingle = false,
+  onConnect
+}: {
+  compact?: boolean
+  showSingle?: boolean
+  onConnect: () => void
+}) {
   const { t } = useI18n()
   const registry = useStore($connectionsRegistry)
   const activeConnectionId = useStore($activeConnectionId)
@@ -86,7 +94,7 @@ export function ConnectionSwitcher({ compact = false, onConnect }: { compact?: b
     return () => window.removeEventListener('keydown', closeOnEscape, { capture: true })
   }, [menuOpen])
 
-  if (connections.length <= 1) {
+  if (!showSingle && connections.length <= 1) {
     return null
   }
 

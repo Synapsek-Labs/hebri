@@ -2736,7 +2736,7 @@ export const en: Translations = {
     nav: {
       newChat: { title: 'New session', detail: 'Start a fresh session' },
       settings: { title: 'Settings', detail: 'Configure Hebri desktop' },
-      capabilities: { title: 'Capabilities', detail: 'Skills, tools, MCP servers, and plugins' },
+      capabilities: { title: 'Skills & apps', detail: 'Skills, tools, MCP servers, and plugins' },
       messaging: { title: 'Messaging', detail: 'Set up Telegram, Slack, Discord, and more' },
       artifacts: { title: 'Artifacts', detail: 'Browse generated outputs' }
     },
@@ -3485,7 +3485,7 @@ export const en: Translations = {
     profileRail: 'Profile rail',
     nav: {
       'new-session': 'New session',
-      capabilities: 'Capabilities',
+      capabilities: 'Skills & apps',
       messaging: 'Messaging',
       artifacts: 'Artifacts',
       cron: 'Scheduled jobs'
@@ -5077,6 +5077,16 @@ export const en: Translations = {
       attachingFile: 'Attaching…'
     },
     approval: {
+      actionTitle: 'Allow this action?',
+      scriptTitle: 'Run an automation script?',
+      scriptReason:
+        'This script can run programs and change files without asking about each individual step. Review the full script before approving.',
+      unknownReason:
+        'Hebri has not provided a specific explanation of the effects. Review the technical details, or decline and ask Hebri to explain first.',
+      safetyWarning: 'Automatic safety review blocked this action. Approving overrides that decision for this request.',
+      onceExplanation: 'Approve once allows this request only. Decline prevents this action from running.',
+      technicalDetails: 'Technical details',
+      otherOptions: 'Other options',
       gatewayDisconnected:
         'Hebri is offline right now. The command is still waiting for your answer (until the approval timeout). Reconnect, then send it again.',
       sendFailed: 'Could not send your answer',
@@ -5084,13 +5094,13 @@ export const en: Translations = {
       timedOutSystemLine:
         'Approval timed out — the command was not run. Ask Hebri to try again, or raise the limit in Settings → Safety → Approval timeout.',
       openSafetySettings: 'Open Safety settings',
-      run: 'Run',
+      run: 'Approve once',
       command: 'Command',
       moreOptions: 'More approval options',
       allowSession: 'Allow this session',
       alwaysAllowMenu: 'Always allow…',
       jumpToApproval: 'Approval needed',
-      reject: 'Reject',
+      reject: 'Decline',
       alwaysTitle: 'Always allow this command?',
       alwaysDescription: pattern =>
         `This adds the “${pattern}” pattern to your permanent allowlist. Hebri won’t ask again for commands like this — in this session or any future one.`,
@@ -5190,6 +5200,8 @@ export const en: Translations = {
       statusDone: 'Done',
       resultUnavailable: 'Result unavailable',
       resultInterrupted: 'Interrupted',
+      resultInterruptedRecovery:
+        'Stopped before the result was confirmed. Some actions may already have happened; check before retrying.',
       memoryWriteNoted: 'Memory write noted',
       actions: {
         read: 'Read',

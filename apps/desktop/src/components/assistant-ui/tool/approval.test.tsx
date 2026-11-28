@@ -31,7 +31,13 @@ beforeAll(() => {
 function setRequest(
   command = 'rm -rf /tmp/x',
   allowPermanent?: boolean,
-  extra: { choices?: string[]; requestId?: string; serverRequestId?: string; smartDenied?: boolean } = {}
+  extra: {
+    choices?: string[]
+    requestId?: string
+    serverRequestId?: string
+    smartDenied?: boolean
+    description?: string
+  } = {}
 ) {
   $activeSessionId.set('sess-1')
   setApprovalRequest({ allowPermanent, command, description: 'dangerous command', sessionId: 'sess-1', ...extra })
@@ -66,6 +72,51 @@ afterEach(() => {
 })
 
 describe('PendingApprovalStack', () => {
+  it('shows the reason before code and reveals the complete command without answering', () => {
+    const request = mockGateway()
+    const code = "execute_code <<'PY'\nprint('hello')\nPY"
+    setRequest(code, false, { description: 'Read the sample report to calculate its total.' })
+    const { container } = render(<PendingApprovalStack />)
+
+    expect(screen.getByText('Run an automation script?')).toBeTruthy()
+    expect(screen.getByText('Read the sample report to calculate its total.')).toBeTruthy()
+    expect(screen.getByText(/This script can run programs and change files/)).toBeTruthy()
+    expect(container.querySelector('pre')).toBeNull()
+    const details = screen.getByRole('button', { name: 'Technical details' })
+    expect(details.getAttribute('aria-expanded')).toBe('false')
+    details.focus()
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    details.dispatchEvent(enter)
+    expect(handleApprovalKey(enter)).toBe(false)
+    fireEvent.click(details)
+    expect(container.querySelector('pre')?.textContent).toBe(code)
+    expect(details.getAttribute('aria-expanded')).toBe('true')
+    expect(request).not.toHaveBeenCalled()
+    expect($approvalRequest.get()).not.toBeNull()
+  })
+
+  it('does not turn a compound command or a friendly comment into a safe explanation', () => {
+    setRequest('echo read report; rm -rf /tmp/x # harmless')
+    render(<PendingApprovalStack />)
+    expect(screen.getByText(/has not provided a specific explanation/)).toBeTruthy()
+    expect(screen.getByText('Allow this action?')).toBeTruthy()
+  })
+
+  it('keeps the automatic denial visible and hides broader approval scopes', () => {
+    setRequest('python -c "print(1)"', false, { smartDenied: true })
+    render(<PendingApprovalStack />)
+    expect(screen.getByText(/Automatic safety review blocked this action/)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'More approval options' })).toBeNull()
+  })
+
+  it('honors the permanent-approval prohibition even if choices includes always', async () => {
+    setRequest('test action', false, { choices: ['once', 'session', 'always', 'deny'] })
+    render(<PendingApprovalStack />)
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'More approval options' }), { button: 0, ctrlKey: false })
+    expect(await screen.findByRole('menuitem', { name: /Allow this session/ })).toBeTruthy()
+    expect(screen.queryByRole('menuitem', { name: /Always allow/ })).toBeNull()
+  })
+
   it('retains an empty host without consuming keyboard input', () => {
     const { container } = render(<PendingApprovalStack />)
 
@@ -78,8 +129,8 @@ describe('PendingApprovalStack', () => {
     setRequest('chmod -R 777 /tmp/x')
     render(<PendingApprovalStack />)
 
-    expect(screen.getByRole('button', { name: /Run/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Reject/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Approve once/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Decline/ })).toBeTruthy()
   })
 
   it('answers the live approval request with {choice: "once"} and clears the request on Run', async () => {
@@ -88,7 +139,7 @@ describe('PendingApprovalStack', () => {
     setRequest('rm -rf /tmp/x', undefined, { requestId: 'apr-1', serverRequestId: 'srq-approval' })
     render(<PendingApprovalStack />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Run/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Approve once/ }))
 
     await waitFor(() => {
       expect(respond).toHaveBeenCalledWith({ choice: 'once' })
@@ -113,7 +164,7 @@ describe('PendingApprovalStack', () => {
 
     try {
       render(<PendingApprovalStack />)
-      const run = screen.getByRole('button', { name: /Run/ })
+      const run = screen.getByRole('button', { name: /Approve once/ })
 
       // Chromium moves focus onto the pressed button before `click` fires.
       fireEvent.pointerDown(run)
@@ -143,7 +194,7 @@ describe('PendingApprovalStack', () => {
 
     try {
       render(<PendingApprovalStack />)
-      const run = screen.getByRole('button', { name: /Run/ })
+      const run = screen.getByRole('button', { name: /Approve once/ })
 
       fireEvent.pointerDown(run)
       run.focus()
@@ -170,7 +221,7 @@ describe('PendingApprovalStack', () => {
     setRequest('rm -rf /tmp/x', undefined, { requestId: 'apr-1' })
     render(<PendingApprovalStack />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Run/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Approve once/ }))
 
     await waitFor(() => {
       expect(request).toHaveBeenCalledWith('approval.respond', {
@@ -189,7 +240,7 @@ describe('PendingApprovalStack', () => {
     setRequest('rm -rf /tmp/x', undefined, { requestId: 'apr-1', serverRequestId: 'srq-approval' })
     render(<PendingApprovalStack />)
 
-    fireEvent.click(screen.getByRole('button', { name: /Reject/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Decline/ }))
 
     await waitFor(() => {
       expect(respond).toHaveBeenCalledWith({ choice: 'deny' })
@@ -225,8 +276,8 @@ describe('PendingApprovalStack', () => {
     setRequest('rm -rf /tmp/x', true, { smartDenied: true })
     render(<PendingApprovalStack />)
 
-    expect(screen.getByRole('button', { name: /Run/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Reject/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Approve once/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Decline/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /More approval options/ })).toBeNull()
     expect(screen.queryByText(/Allow this session/)).toBeNull()
     expect(screen.queryByText(/Always allow/)).toBeNull()
@@ -236,8 +287,8 @@ describe('PendingApprovalStack', () => {
     setRequest('rm -rf /tmp/x', true, { choices: ['once', 'deny'] })
     render(<PendingApprovalStack />)
 
-    expect(screen.getByRole('button', { name: /Run/ })).toBeTruthy()
-    expect(screen.getByRole('button', { name: /Reject/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Approve once/ })).toBeTruthy()
+    expect(screen.getByRole('button', { name: /Decline/ })).toBeTruthy()
     expect(screen.queryByRole('button', { name: /More approval options/ })).toBeNull()
   })
 
@@ -249,13 +300,15 @@ describe('PendingApprovalStack', () => {
     act(() => {
       handleApprovalKey(new KeyboardEvent('keydown', { key: 'Enter', cancelable: true }))
     })
-    await waitFor(() => expect((screen.getByRole('button', { name: /Run/ }) as HTMLButtonElement).disabled).toBe(false))
+    await waitFor(() =>
+      expect((screen.getByRole('button', { name: /Approve once/ }) as HTMLButtonElement).disabled).toBe(false)
+    )
     act(() => {
       handleApprovalKey(new KeyboardEvent('keydown', { key: 'Enter', repeat: true, cancelable: true }))
     })
     expect(rpc).toHaveBeenCalledTimes(1)
     expect($approvalRequest.get()?.command).toBe('first')
-    fireEvent.click(screen.getByRole('button', { name: /Run/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Approve once/ }))
     await waitFor(() => expect($approvalRequest.get()).toBeNull())
   })
 
@@ -274,7 +327,7 @@ describe('PendingApprovalStack', () => {
         <input aria-label="Draft" />
       </>
     )
-    expect(screen.getAllByRole('button', { name: /Run/ })).toHaveLength(1)
+    expect(screen.getAllByRole('button', { name: /Approve once/ })).toHaveLength(1)
     expect(document.querySelectorAll('[data-slot="card-stack-edge"]')).toHaveLength(1)
     const draft = screen.getByRole('textbox')
     fireEvent.change(draft, { target: { value: 'keep this' } })
@@ -295,7 +348,9 @@ describe('PendingApprovalStack', () => {
           session_id: 'sess-1'
         })
       )
-      await waitFor(() => expect(screen.queryAllByRole('button', { name: /Run/ })).toHaveLength(index === 2 ? 0 : 1))
+      await waitFor(() =>
+        expect(screen.queryAllByRole('button', { name: /Approve once/ })).toHaveLength(index === 2 ? 0 : 1)
+      )
     }
 
     releaseApprovalKey()
@@ -338,7 +393,9 @@ describe('PendingApprovalStack', () => {
       }
 
       await waitFor(() =>
-        expect(screen.queryAllByRole('button', { name: /Run/ })).toHaveLength(index === responses.length - 1 ? 0 : 1)
+        expect(screen.queryAllByRole('button', { name: /Approve once/ })).toHaveLength(
+          index === responses.length - 1 ? 0 : 1
+        )
       )
     }
 

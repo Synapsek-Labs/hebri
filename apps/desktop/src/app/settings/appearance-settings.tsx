@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { useDebounced } from '@/app/hooks/use-debounced'
+import { InterfaceModeControl } from '@/components/interface-mode-control'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
@@ -19,13 +20,7 @@ import { cn } from '@/lib/utils'
 import { $backdrop, setBackdrop } from '@/store/backdrop'
 import { $composerPopoutGesturesEnabled, setComposerPopoutGesturesEnabled } from '@/store/composer-popout'
 import { $embedAllowed, $embedMode, clearEmbedAllowed, type EmbedMode, setEmbedMode } from '@/store/embed-consent'
-import {
-  $interfaceMode,
-  $modeShadowed,
-  INTERFACE_MODES,
-  type InterfaceMode,
-  setInterfaceMode
-} from '@/store/interface-mode'
+import { $interfaceMode, $modeShadowed } from '@/store/interface-mode'
 import { $introSplash, setIntroSplash } from '@/store/intro-splash'
 import { notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
@@ -508,14 +503,6 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
     { id: 'detailed', label: a.sessionDensityDetailed }
   ] as const satisfies readonly { id: SessionListDensity; label: string }[]
 
-  const interfaceModeOptions = INTERFACE_MODES.map(id => ({
-    id,
-    label: t.interfaceMode[id].label
-  })) satisfies readonly {
-    id: InterfaceMode
-    label: string
-  }[]
-
   // A row whose value Simple mode currently decides says so where the
   // preference text would otherwise promise a persistence it cannot deliver.
   const withModeNote = (description: string, shadowed: boolean) =>
@@ -560,6 +547,14 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
         )}
 
         <div className={subpage === undefined ? 'mt-2' : undefined}>
+          {show('general') && (
+            <ListRow
+              action={<InterfaceModeControl />}
+              description={t.interfaceMode.hint}
+              id={settingElementId(ids.interfaceMode)}
+              title={t.interfaceMode.title}
+            />
+          )}
           {show('general') && (
             <ListRow
               action={<LanguageSwitcher />}
@@ -695,24 +690,6 @@ export function AppearanceSettings({ subpage }: AppearanceSettingsProps = {}) {
                 </div>
               )}
             </>
-          )}
-
-          {show('window-layout') && (
-            <ListRow
-              action={
-                <SegmentedControl
-                  onChange={id => {
-                    triggerHaptic('selection')
-                    setInterfaceMode(id)
-                  }}
-                  options={interfaceModeOptions}
-                  value={interfaceMode}
-                />
-              }
-              description={t.interfaceMode.hint}
-              id={settingElementId(ids.interfaceMode)}
-              title={t.interfaceMode.title}
-            />
           )}
 
           {show('window-layout') && (

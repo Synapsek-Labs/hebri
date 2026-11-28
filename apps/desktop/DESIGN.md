@@ -79,6 +79,16 @@ replace the foreground transcript or steal focus.
 
 ## Surfaces & elevation
 
+Simple mode's fresh-chat home uses a compact heading and localized task starters
+instead of the oversized wordmark. Starters use the existing scoped composer
+insert bus, append an editable draft, and never submit, change tools or request
+a model. The existing fresh-draft visibility gate owns when this home appears;
+opening an existing conversation must not show it over the transcript.
+On a fresh Simple-mode draft, the welcome and docked composer share a flowing
+center group. The editor keeps its portal host and component identity; starting
+a conversation restores bottom docking. Short windows scroll the group instead
+of clipping controls. A separately floating composer keeps its own position.
+
 Floating panels (base `Dialog`, route overlays, boot/install/update surfaces,
 model-picker, onboarding, prompt overlays, notifications) use:
 
@@ -300,6 +310,12 @@ and the right-sidebar toggle sit on the right; haptics remain in settings.
 In Simple interface mode only sidebar, settings and the layout editor render,
 and the reserved cluster width shrinks with them (`TITLEBAR_FIXED_TOOLS` is the
 one table both the buttons and the width reservation read).
+The chat sidebar exposes the same Simple / Advanced control as Appearance >
+General, so changing interface mode does not require finding the layout editor.
+Saved results and scheduled jobs remain reachable in either mode. This is a
+presentation preference: switching it must not change the chosen model, approval
+policy, system prompt or tool schemas, or send an extra model request. Existing
+prompt caching and deferred capability loading remain runtime responsibilities.
 Holding Cmd (Ctrl off macOS) reveals small slot numbers over the target strip's
 status dots after 400ms, without changing tab widths. Hints follow the same
 binding and hovered/focused-zone resolver as the number shortcuts.

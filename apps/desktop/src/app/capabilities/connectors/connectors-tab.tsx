@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { HermesGateway, ProfileScope } from '@/hermes'
 import { useI18n } from '@/i18n'
+import { managedAppsCopy } from '@/i18n/managed-apps-copy'
 import { notifyError, readableError } from '@/store/notifications'
 
 import { installBundledEntry } from '../mcp/install-catalog-entry'
@@ -332,14 +333,14 @@ export function ConnectorsTab({ gateway, profile }: ConnectorsTabProps) {
 }
 
 function HostedNotice({ phase }: { phase: HostedPhase }) {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const copy = t.connectorsPage.page
   const navigate = useNavigate()
 
-  if (phase === 'signedOut') {
+  if (phase === 'signedOut' || phase === 'failed') {
     return (
-      <p className="flex shrink-0 items-center gap-1 text-[0.7rem] text-(--ui-text-tertiary)">
-        Sign in to Synapsek to manage this Bit’s connections.
+      <p className="shrink-0 text-xs leading-relaxed text-(--ui-text-secondary)">
+        {managedAppsCopy[locale]}
         <Button onClick={() => navigate('/settings?tab=billing')} size="xs" variant="text">
           {copy.signIn}
         </Button>
@@ -350,7 +351,7 @@ function HostedNotice({ phase }: { phase: HostedPhase }) {
   if (phase === 'unavailable') {
     return (
       <p className="shrink-0 text-[0.7rem] text-(--ui-text-tertiary)">
-        {copy.managedUnavailable}{' '}
+        {copy.managedUnavailable} {managedAppsCopy[locale]}{' '}
         <Button onClick={() => navigate('/settings?tab=billing')} size="xs" variant="text">
           Synapsek account
         </Button>

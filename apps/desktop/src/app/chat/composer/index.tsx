@@ -111,6 +111,7 @@ import {
   selectionLinkLabel
 } from './url-refs'
 import { VoiceActivity, VoicePlaybackActivity } from './voice-activity'
+import { WorkspaceControls } from './workspace-controls'
 
 export function ChatBar({
   busy,
@@ -1543,6 +1544,9 @@ export function ChatBar({
               the pop-out drag region. Same px as the strip above, so the two
               bracket the composer on one vertical line. */}
           <div className={cn(composerFloatingStrip, 'px-[5px] pt-1.5 empty:hidden')}>
+            {!sessionId && scope.target === 'main' && !botChat && !poppedOut && !hudMode && (
+              <WorkspaceControls cwd={cwd} />
+            )}
             <ContribSlot area={COMPOSER_AREAS.underside} />
           </div>
         </div>
